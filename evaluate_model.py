@@ -99,28 +99,28 @@ class PhylogenyComparator:
         name_copy = name
         # Format the name so only the first character is capitalized.
         if format_name: 
-            if name in self.dictionary:
-                name_copy = self.dictionary[name_copy]
+            if name in self._dictionary:
+                name_copy = self._dictionary[name_copy]
             else:
                 name_copy = name.capitalize()
                 name_copy = name_copy.replace('_', '%20')
 
 
         # Return a copy of any previously found results.
-        if (name_copy, rank_limit) in self.phylogeny_cache:
+        if (name_copy, rank_limit) in self._phylogeny_cache:
             return list(self._phylogeny_cache[(name_copy, rank_limit)])
 
         json_result = {}
-        if name_copy not in self.phylogeny_request_cache:
+        if name_copy not in self._phylogeny_request_cache:
             # Make the server request and parse to json.
             req_result = requests.get(
                 "http://dsg.mbari.org/kb/v1/phylogeny/up/" + name_copy)
             try:
                 json_result = json.loads(req_result.text)
-                self.phylogeny_request_cache[name_copy] = json_result
+                self._phylogeny_request_cache[name_copy] = json_result
             except JSONDecodeError:
                 print("Could not get Knowledgebase phylogeny for {}".format(name_copy))
-                self.phylogeny_request_cache[name_copy] = {}
+                self._phylogeny_request_cache[name_copy] = {}
                 return []
         else:
             json_result = self._phylogeny_request_cache[name_copy]
@@ -173,9 +173,9 @@ class PhylogenyComparator:
         """
         # Check if we've already made this comparison before. If so, we can return
         # our cached results.
-        if (truth_name, track_name) in self.phylogeny_comparison_cache:
+        if (truth_name, track_name) in self._phylogeny_comparison_cache:
             return self._phylogeny_comparison_cache[(truth_name, track_name)]
-        if (track_name, truth_name) in self.phylogeny_comparison_cache:
+        if (track_name, truth_name) in self._phylogeny_comparison_cache:
             return self._phylogeny_comparison_cache[(track_name, truth_name)]
 
         # Get the taxonomy sequence for both truth and tracked classifications.
@@ -191,7 +191,7 @@ class PhylogenyComparator:
         if (len(truth_phylogeny) != len(track_phylogeny)):
             differences += abs(len(truth_phylogeny) - len(track_phylogeny))
         # Save a copy of the results.
-        self.phylogeny_comparison_cache[(truth_name, track_name)] = (differences,
+        self._phylogeny_comparison_cache[(truth_name, track_name)] = (differences,
                                                                 max(len(truth_phylogeny), len(track_phylogeny)))
         return (differences, max(len(truth_phylogeny), len(track_phylogeny)))
 
@@ -384,7 +384,6 @@ def build_mot_accumulator(truth_framedata: {},
 
         # Build the distance/cost matrix.
         dist_matrix = build_cost_matrix(truth_curr_frame, model_curr_frame, iou=False)
-        print(dist_matrix)
 
         # Get the object indices of detections for the truth and model as arrays.
         truth_indices = list(map(lambda det: int(det['id']), truth_curr_frame))
