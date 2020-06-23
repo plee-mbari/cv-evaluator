@@ -18,7 +18,8 @@ from json import JSONDecodeError
 
 class PhylogenyComparator:
     """ Gets and computes the phylogenetic differences between classifications,
-        using the MBARI Knowledgebase server.
+        using the MBARI Knowledgebase server. Stores a dictionary used to
+        replace classifications.
     """
     # Stores any previously made requests, where the key is the name and the value
     # is the complete JSON result.
@@ -81,8 +82,9 @@ class PhylogenyComparator:
             The name to query the database for.
             
             format_name: boolean
-            (optional) whether the name should be automatically formatted, where
-            the first character is capitalized and all '_' are replaced with '%20'
+            (optional) whether the name should be automatically formatted. If there
+            is a dictionary entry for that name, replaces the name with the dictionary
+            entry. Otherwise, the first character is capitalized and all '_' are replaced with '%20'.
 
             rank_limit: str
             (optional) if set, limits the results to only classifications at or
@@ -96,9 +98,13 @@ class PhylogenyComparator:
         # Copy the name so we can make formatting changes to it.
         name_copy = name
         # Format the name so only the first character is capitalized.
-        if (format_name):
-            name_copy = name.capitalize()
-            name_copy = name_copy.replace('_', '%20')
+        if format_name: 
+            if name in self.dictionary:
+                name_copy = self.dictionary[name_copy]
+            else:
+                name_copy = name.capitalize()
+                name_copy = name_copy.replace('_', '%20')
+
 
         # Return a copy of any previously found results.
         if (name_copy, rank_limit) in self.phylogeny_cache:
@@ -215,8 +221,8 @@ class PhylogenyComparator:
         """
         frame_num = int(row.name[0])
         # Find the dictionary corresponding to the frame and ID
-        truth_frame = __find_detection(truth_data, frame_num, row['OId'])
-        model_frame = __find_detection(model_data, frame_num, row['OId'])
+        truth_frame = self.__find_detection(truth_data, frame_num, row['OId'])
+        model_frame = self.__find_detection(model_data, frame_num, row['OId'])
 
         # Check if we found the detections, if not we return.
         if not model_frame or not truth_frame:
@@ -228,6 +234,11 @@ class PhylogenyComparator:
                                         format_name=True,
                                         rank_limit='kingdom')
         return (diff, total)
+
+
+    def add_definition(self, key: str, value: str):
+        """Adds a new definition to the internal dictionary used to replace classifications."""
+        self._dictionary[key] = value
 
 # End class PhylogenyComparator
 
