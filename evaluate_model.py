@@ -16,130 +16,220 @@ import json
 from json import JSONDecodeError
 
 
-# Stores any previously made requests, where the key is the name and the value
-# is the complete JSON result.
-phylogeny_request_cache = {}
-# Stores the lists of any previous phylogeny results, where the keys are tuples
-# made of (name, rank_limit) and the values are the ordered phylogeny.
-phylogeny_cache = {}
-# Stores the results of any previous comparisons between two phylogenies, where
-# the keys are (name1, name2) and the values are the number of differing
-# classifications.
-phylogeny_comparison_cache = {}
-
-
-def get_phylogeny(name: str, format_name=True, rank_limit=None) -> [str]:
-    """Queries the Knowledgebase server and returns the phylogenetic ancestors
-       of a given taxonomic concept as a string list.
-
-       Parameters
-       ----------
-        name : str
-          The name to query the database for.
-        format_name : boolean
-          (optional) whether the name should be automatically formatted, where
-          the first character is capitalized and all '_' are replaced with '%20'
-        rank_limit : str
-          (optional) if set, limits the results to only classifications at or
-          below that rank (ex: phylum, kingdom, superkingdom)
-
-      Returns
-      -------
-        [str]
-        The ordered classification layers, in descending classification rank. 
+class PhylogenyComparator:
+    """ Gets and computes the phylogenetic differences between classifications,
+        using the MBARI Knowledgebase server.
     """
-    # Copy the name so we can make formatting changes to it.
-    name_copy = name
-    # Format the name so only the first character is capitalized.
-    if (format_name):
-        name_copy = name.capitalize()
-        name_copy = name_copy.replace('_', '%20')
+    # Stores any previously made requests, where the key is the name and the value
+    # is the complete JSON result.
+    _phylogeny_request_cache = {}
 
-    # Return a copy of any previously found results.
-    if (name_copy, rank_limit) in phylogeny_cache:
-        return list(phylogeny_cache(name_copy, rank_limit))
+    # Stores the lists of any previous phylogeny results, where the keys are tuples
+    # made of (name, rank_limit) and the values are the ordered phylogeny.
+    _phylogeny_cache = {}
 
-    json_result = {}
-    if name_copy not in phylogeny_request_cache:
-        # Make the server request and parse to json.
-        req_result = requests.get(
-            "http://dsg.mbari.org/kb/v1/phylogeny/up/" + name_copy)
-        try:
-            json_result = json.loads(req_result.text)
-            phylogeny_request_cache[name_copy] = json_result
-        except JSONDecodeError:
-            print("Could not get Knowledgebase phylogeny for {}".format(name_copy))
-            phylogeny_request_cache[name_copy] = {}
-            return []
-    else:
-        json_result = phylogeny_request_cache[name_copy]
+    # Stores the results of any previous comparisons between two phylogenies, where
+    # the keys are (name1, name2) and the values are the number of differing
+    # classifications.
+    _phylogeny_comparison_cache = {}
 
-    # Loop through the nested JSON and get the names.
-    ret = []
-    curr_level = json_result
-    while True:
-        # Limit results to only at or below the rank_limit by clearing any parents.
-        if 'rank' in curr_level and curr_level['rank'] == rank_limit:
-            ret.clear()
-        # Append the category name to our results
-        if 'name' in curr_level:
-            ret.append(curr_level['name'])
-        # Recurse on children if available, otherwise exit.
-        if 'children' in curr_level and curr_level['children']:
-            curr_level = curr_level['children'][0]
+    # Custom dictionary. Used to override the formatted form of a classification,
+    # declared at initialization.
+    _dictionary = {}
+
+    def PhylogenyComparator(self, dictionary={}):
+        """ Constructs a new PhylogenyComparator. If a dictionary is set, uses the
+            provided dictionary to override classifications when querying the server.
+        """
+        self._dictionary = dictionary
+
+
+    def __find_detection(self, src_framedata: [], frame: int, id: int):
+        """ Returns the object in the framedata dictionary that has the matching frame
+            and id.
+
+            Params
+            ------
+            src_framedata: {}
+            A dictionary where the keys are frame numbers and the values are lists
+            of detections, formatted as dictionary objects.
+            frame: int
+            The frame number to match.
+            id: int
+            The tracking id number to match.
+
+            Returns
+            -------
+            The dictionary object with the matching frame number and id.
+            Otherwise, returns an empty dictionary.
+        """
+        detections = src_framedata.get(str(frame), [])
+        results = list(
+            filter(lambda x: 'id' in x and int(x['id']) == id, detections))
+        if results:
+            return results[0]
+        return {}
+
+
+    def get_phylogeny(self, name: str, format_name=True, rank_limit=None) -> [str]:
+        """Queries the Knowledgebase server and returns the phylogenetic ancestors
+        of a given taxonomic concept as a string list.
+
+        Parameters
+        ----------
+            name: str
+            The name to query the database for.
+            
+            format_name: boolean
+            (optional) whether the name should be automatically formatted, where
+            the first character is capitalized and all '_' are replaced with '%20'
+
+            rank_limit: str
+            (optional) if set, limits the results to only classifications at or
+            below that rank (ex: phylum, kingdom, superkingdom)
+
+        Returns
+        -------
+            [str]
+            The ordered classification layers, in descending classification rank. 
+        """
+        # Copy the name so we can make formatting changes to it.
+        name_copy = name
+        # Format the name so only the first character is capitalized.
+        if (format_name):
+            name_copy = name.capitalize()
+            name_copy = name_copy.replace('_', '%20')
+
+        # Return a copy of any previously found results.
+        if (name_copy, rank_limit) in self.phylogeny_cache:
+            return list(self._phylogeny_cache[(name_copy, rank_limit)])
+
+        json_result = {}
+        if name_copy not in self.phylogeny_request_cache:
+            # Make the server request and parse to json.
+            req_result = requests.get(
+                "http://dsg.mbari.org/kb/v1/phylogeny/up/" + name_copy)
+            try:
+                json_result = json.loads(req_result.text)
+                self.phylogeny_request_cache[name_copy] = json_result
+            except JSONDecodeError:
+                print("Could not get Knowledgebase phylogeny for {}".format(name_copy))
+                self.phylogeny_request_cache[name_copy] = {}
+                return []
         else:
-            break
-    return ret
+            json_result = self._phylogeny_request_cache[name_copy]
+
+        # Loop through the nested JSON and get the names.
+        ret = []
+        curr_level = json_result
+        while True:
+            # Limit results to only at or below the rank_limit by clearing any parents.
+            if 'rank' in curr_level and curr_level['rank'] == rank_limit:
+                ret.clear()
+            # Append the category name to our results
+            if 'name' in curr_level:
+                ret.append(curr_level['name'])
+            # Recurse on children if available, otherwise exit.
+            if 'children' in curr_level and curr_level['children']:
+                curr_level = curr_level['children'][0]
+            else:
+                break
+        return ret
 
 
-def compare_phylogeny(truth_name: str, track_name: str, format_name=False,
+    def compare_phylogeny(self, truth_name: str, track_name: str, format_name=False,
                       rank_limit=None) -> int:
-    """Returns the number of differing phylogenetic classifications between the 
-      truth_name and track_name, as well as the largest number of phylogenetic
-      classification layers.
+        """Returns the number of differing phylogenetic classifications between the 
+        truth_name and track_name, as well as the largest number of phylogenetic
+        classification layers.
 
-      Params
-      ------
-      truth_name: str
-          The classification of an object given by the ground-truth data.
-      track_name: str
-          The classification of an object given by the model.
-      format_name: bool
-          (optional) If true, automatically formats the provided names. False by default.
-      rank_limit: str
-          (optional) The maximum phylogenetic ranking that should be considered. If set,
-          the maximum number of phylogenetic classifications is set at the rank_limit,
-          if found.
+        Params
+        ------
+        truth_name: str
+            The classification of an object given by the ground-truth data.
 
-      Returns
-      -------
-      (int, int)
-      1) The differences between the two phylogenetic sequences and 2) the max
-      number of classification layers present.
-    """
-    # Check if we've already made this comparison before. If so, we can return
-    # our cached results.
-    if (truth_name, track_name) in phylogeny_comparison_cache:
-        return phylogeny_comparison_cache[(truth_name, track_name)]
-    if (track_name, truth_name) in phylogeny_comparison_cache:
-        return phylogeny_comparison_cache[(track_name, truth_name)]
+        track_name: str
+            The classification of an object given by the model.
 
-    # Get the taxonomy sequence for both truth and tracked classifications.
-    truth_phylogeny = get_phylogeny(truth_name, format_name, rank_limit)
-    track_phylogeny = get_phylogeny(track_name, format_name, rank_limit)
+        format_name: bool
+            (optional) If true, automatically formats the provided names. False by default.
 
-    differences = 0
-    # Count any differences in the sequences
-    for i in range(0, min(len(truth_phylogeny), len(track_phylogeny))):
-        if truth_phylogeny[i] != track_phylogeny[i]:
-            differences += 1
-    # Count any length differences (which indicate differing specificity)
-    if (len(truth_phylogeny) != len(track_phylogeny)):
-        differences += abs(len(truth_phylogeny) - len(track_phylogeny))
-    # Save a copy of the results.
-    phylogeny_comparison_cache[(truth_name, track_name)] = (differences,
-                                                            max(len(truth_phylogeny), len(track_phylogeny)))
-    return (differences, max(len(truth_phylogeny), len(track_phylogeny)))
+        rank_limit: str
+            (optional) The maximum phylogenetic ranking that should be considered. If set,
+            the maximum number of phylogenetic classifications is set at the rank_limit,
+            if found.
+
+        Returns
+        -------
+        (int, int)
+        1) The differences between the two phylogenetic sequences and 2) the max
+        number of classification layers present.
+        """
+        # Check if we've already made this comparison before. If so, we can return
+        # our cached results.
+        if (truth_name, track_name) in self.phylogeny_comparison_cache:
+            return self._phylogeny_comparison_cache[(truth_name, track_name)]
+        if (track_name, truth_name) in self.phylogeny_comparison_cache:
+            return self._phylogeny_comparison_cache[(track_name, truth_name)]
+
+        # Get the taxonomy sequence for both truth and tracked classifications.
+        truth_phylogeny = self.get_phylogeny(truth_name, format_name, rank_limit)
+        track_phylogeny = self.get_phylogeny(track_name, format_name, rank_limit)
+
+        differences = 0
+        # Count any differences in the sequences
+        for i in range(0, min(len(truth_phylogeny), len(track_phylogeny))):
+            if truth_phylogeny[i] != track_phylogeny[i]:
+                differences += 1
+        # Count any length differences (which indicate differing specificity)
+        if (len(truth_phylogeny) != len(track_phylogeny)):
+            differences += abs(len(truth_phylogeny) - len(track_phylogeny))
+        # Save a copy of the results.
+        self.phylogeny_comparison_cache[(truth_name, track_name)] = (differences,
+                                                                max(len(truth_phylogeny), len(track_phylogeny)))
+        return (differences, max(len(truth_phylogeny), len(track_phylogeny)))
+
+
+    def compare_phylogeny_from_row(self, row: pd.Series, truth_data, model_data):
+        """ Computes the differences in phylogeny for a single row of the
+            MOTAccumulator's event table. (intended as lambda function)
+
+            Params
+            ------
+            row: pandas.Series
+                The row of the MOTAccumulator, as a Series. The name of the 
+                row should be in the form (frame_num, event_id) and it 
+                should include the columns 'OId' and 'HId'.
+            
+            truth_data: {}
+                The parsed truth output. This should be in a form matching
+                the output of parse_XML_by_frame.
+
+            model_data: {}
+                The parsed model output.
+
+            Returns
+            -------
+            (int, int), where the tuple is made up of (differing classifications,
+            total classifications) for that match.
+        """
+        frame_num = int(row.name[0])
+        # Find the dictionary corresponding to the frame and ID
+        truth_frame = __find_detection(truth_data, frame_num, row['OId'])
+        model_frame = __find_detection(model_data, frame_num, row['OId'])
+
+        # Check if we found the detections, if not we return.
+        if not model_frame or not truth_frame:
+            return (0, 0)
+
+        # Compare the phylogeny of the two
+        diff, total = self.compare_phylogeny(truth_frame['class_name'],
+                                        model_frame['class_name'],
+                                        format_name=True,
+                                        rank_limit='kingdom')
+        return (diff, total)
+
+# End class PhylogenyComparator
 
 
 def parse_XML_by_frame(xml_file: str):
@@ -322,68 +412,37 @@ def find_detection(src_framedata: [], frame: int, id: int):
     return {}
 
 
-def compare_phylogeny_from_row(row: pd.Series, truth_data, model_data):
-    """ Computes the differences in phylogeny for a single row of the
-        MOTAccumulator's event table. (intended as lambda function)
+def build_metadata_table(truth_framedata: {}, model_framedata: {},
+                         mot_acc: mm.MOTAccumulator, 
+                         phylogeny_comparator=PhylogenyComparator()) -> pd.DataFrame:
+    """ Builds a DataFrame that extends the accumulator's event table with  
+        metadata and phylogenetic comparisons from the model's framedata.
+
+        This allows one to quantify the performance of the model in relation to
+        the metadata tags.
 
         Params
         ------
-        row: pandas.Series
-          The row of the MOTAccumulator, as a Series. The name of the 
-          row should be in the form (frame_num, event_id) and it 
-          should include the columns 'OId' and 'HId'.
-        truth_data: {}
-          The parsed truth output. This should be in a form matching
-          the output of parse_XML_by_frame.
-        model_data: {}
-          The parsed model output.
+        truth_framedata: The truth output, parsed as a dictionary where the keys 
+            are frame numbers and the values are lists of detection data, as 
+            given by parse_XML_by_frame.
+
+        model_framedata: The model output, matching the format specified for
+            truth_framedata.
+
+        mot_acc: A motmetrics.MOTAccumulator to retrieve the MOTEvents from, as
+            given by build_mot_accumulator.
+        
+        phylogeny_comparator: (optional) A PhylogenyComparator to be used for
+            calculating the differences between calculations. (Reusing the same
+            PhylogenyComparator for multiple evaluations is more efficient!)
 
         Returns
         -------
-        (int, int), where the tuple is made up of (differing classifications,
-        total classifications) for that match.
-    """
-    frame_num = int(row.name[0])
-    # Find the dictionary corresponding to the frame and ID
-    truth_frame = find_detection(truth_data, frame_num, row['OId'])
-    model_frame = find_detection(model_data, frame_num, row['OId'])
-
-    # Check if we found the detections, if not we return.
-    if not model_frame or not truth_frame:
-        return (0, 0)
-
-    # Compare the phylogeny of the two
-    diff, total = compare_phylogeny(truth_frame['class_name'],
-                                    model_frame['class_name'],
-                                    format_name=True,
-                                    rank_limit='kingdom')
-    return (diff, total)
-
-
-def build_metadata_table(truth_framedata: {}, model_framedata: {},
-                         mot_acc: mm.MOTAccumulator) -> pd.DataFrame:
-    """ Builds a DataFrame that extends the accumulator's event table with  
-      metadata and phylogenetic comparisons from the model's framedata.
-
-      This allows one to quantify the performance of the model in relation to
-      the metadata tags.
-
-      Params
-      ------
-      truth_framedata: The truth output, parsed as a dictionary where the keys 
-          are frame numbers and the values are lists of detection data, as 
-          given by parse_XML_by_frame.
-      model_framedata: The model output, matching the format specified for
-          truth_framedata.
-      mot_acc: A motmetrics.MOTAccumulator to retrieve the MOTEvents from, as
-          given by build_mot_accumulator.
-
-      Returns
-      -------
-      A copy of the mot_acc events DataFrame with added columns for the detection 
-          metadata (such as confidence, surprise, class_name, etc.) and the 
-          differences in phylogenetic classification.
-    """
+        A copy of the mot_acc events DataFrame with added columns for the detection 
+            metadata (such as confidence, surprise, class_name, etc.) and the 
+            differences in phylogenetic classification.
+        """
     # The mot_events are a DataFrame with columns [FrameId, Event, Type, OId, HId,
     # D] => (D being distance).
     events = mot_acc.mot_events.copy()
@@ -415,12 +474,12 @@ def build_metadata_table(truth_framedata: {}, model_framedata: {},
     # Add in the phylogenetic classifications, one column for the totals and one
     # for the differences.
     events['classif_diff'] = events.apply(
-        lambda x: compare_phylogeny_from_row(
-            x, truth_framedata, model_framedata)[0],
+        lambda x: phylogeny_comparator.compare_phylogeny_from_row(x, 
+                                       truth_framedata, model_framedata)[0],
         axis=1)
     events['classif_total'] = events.apply(
-        lambda x: compare_phylogeny_from_row(
-            x, truth_framedata, model_framedata)[1],
+        lambda x: phylogeny_comparator.compare_phylogeny_from_row(x, 
+                                       truth_framedata, model_framedata)[1],
         axis=1)
 
     return events
