@@ -15,6 +15,7 @@ import requests
 import json
 from json import JSONDecodeError
 
+
 # Stores any previously made requests, where the key is the name and the value
 # is the complete JSON result.
 phylogeny_request_cache = {}

@@ -83,17 +83,20 @@ def build_box_from_framedata(parent_element: ET.Element,
 
         Parameters
         ----------
-        parent_element: Element
-          The parent element for the XML box.
-        framedata : {}
-          The dictionary data for the given frame, as imported from MBARI standard
+        parent_element: The parent element for the XML box.
+
+        framedata : The dictionary data for the given frame, as imported from MBARI standard
           data.
+
         frame_override: int
           (optional) Used as the frame number of the framedata.
+
         outside : int
           (optional) The value of the outside flag. 0 by default.
+
         occluded : int
           (optional) The value of the occluded flag, 0 by default.
+
         keyframe : int
           (optional) The value of the keyframe flag, 1 by default.
 
@@ -141,8 +144,10 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
     uuid_dict : {}
       a dictionary mapping uuid's to the VisualEvent data, in the format
       {uuid: [uuid_frame1, uuid_frame2, ...], ...}
+      
     total_frames : int
       the number of frames that were annotated.
+
     frame_offset: int
       the offset of the first frame of the sequence. If the first frame 
       of the sequence is labelled 24, the offset should be 24.
@@ -242,28 +247,26 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
     return ET.tostring(annotations)
 
 
-if __name__ == "__main__":
-    """ Converts the specified MBARI JSON frame data to a CVAT-compatible annotation file.
+def get_filepaths(*args) -> [str]:
+    """ Parses the given regex into a list of file paths.
 
-    Usage
-    -----
-    python convert_json.py [output xml file] [*json files]
+        Params:
+        -------
+        args:
+            The regular expression(s) to parse into file paths.
     """
-    if (len(sys.argv) < 3):
-        print("Missing one or more arguments.")
-        print("Usage: [output xml file] [*json files]")
-        sys.exit()
-
-    print("Starting...")
-
-    # Append all matching files in the arguments to our file list.
     files = []
-    for i in range(2, len(sys.argv)):
-        files.extend(glob.glob(sys.argv[i]))
-    print("Found {} JSON frames.".format(len(files)))
+    for x in args:
+        files.extend(glob.glob(x))
+    return files
 
+
+def convert_json_to_xml(destination: str, json_src: []):
+    """ Converts the list of json source files to a single, CVAT-compatible
+        annotation file and writes to the defined destination.
+    """
     # Read the file annotations to XML.
-    framedata = read_JSON_annotations(files)
+    framedata = read_JSON_annotations(json_src)
 
     # Get the frame offset. This should be the smallest frame number in the sequence.
     # Because framedata is a dictionary where {uuid: [frame1, frame2, ...], ...}, we
@@ -279,9 +282,30 @@ if __name__ == "__main__":
     formatted_xml = xml.dom.minidom.parseString(xml_string).toprettyxml()
 
     # Output to the file, truncating any existing data.
-    file_output = open(sys.argv[1], 'w')
+    file_output = open(destination, 'w')
     file_output.truncate()
     file_output.write(formatted_xml)
     file_output.close
+
+
+if __name__ == "__main__":
+    """ Converts the specified MBARI JSON frame data to a CVAT-compatible annotation file.
+
+    Usage
+    -----
+    python convert_json.py [output xml file] [*json files]
+    """
+    if (len(sys.argv) < 3):
+        print("Missing one or more arguments.")
+        print("Usage: [output xml file] [*json files]")
+        sys.exit()
+
+    print("Starting...")
+
+    # Append all matching files in the arguments to our file list.
+    files = get_filepaths(sys.argv[2: len(sys.argv)])
+    print("Found {} JSON frames.".format(len(files)))
+
+    convert_json_to_xml(sys.argv[1], files)
 
     print("Operation successful.")
