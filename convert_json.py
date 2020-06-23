@@ -30,9 +30,9 @@ def read_JSON_annotations(files: [str]) -> {}:
         {uuid: [uuid_frame1, uuid_frame2, ...], ...}
     """
     ret = {}
-    for file in files:
+    for jsonfile in files:
         # Read in the file JSON
-        with open(file) as f:
+        with open(jsonfile) as f:
             filedata = json.load(f)
 
         # Loop through the array containing the visual events
@@ -144,7 +144,7 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
     uuid_dict : {}
       a dictionary mapping uuid's to the VisualEvent data, in the format
       {uuid: [uuid_frame1, uuid_frame2, ...], ...}
-      
+
     total_frames : int
       the number of frames that were annotated.
 

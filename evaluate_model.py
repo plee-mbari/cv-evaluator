@@ -38,12 +38,11 @@ class PhylogenyComparator:
     # declared at initialization.
     _dictionary = {}
 
-    def PhylogenyComparator(self, dictionary={}):
+    def __init__(self, dictionary={}):
         """ Constructs a new PhylogenyComparator. If a dictionary is set, uses the
             provided dictionary to override classifications when querying the server.
         """
         self._dictionary = dictionary
-
 
     def __find_detection(self, src_framedata: [], frame: int, id: int):
         """ Returns the object in the framedata dictionary that has the matching frame
@@ -71,7 +70,6 @@ class PhylogenyComparator:
             return results[0]
         return {}
 
-
     def get_phylogeny(self, name: str, format_name=True, rank_limit=None) -> [str]:
         """Queries the Knowledgebase server and returns the phylogenetic ancestors
         of a given taxonomic concept as a string list.
@@ -80,7 +78,7 @@ class PhylogenyComparator:
         ----------
             name: str
             The name to query the database for.
-            
+
             format_name: boolean
             (optional) whether the name should be automatically formatted. If there
             is a dictionary entry for that name, replaces the name with the dictionary
@@ -98,13 +96,12 @@ class PhylogenyComparator:
         # Copy the name so we can make formatting changes to it.
         name_copy = name
         # Format the name so only the first character is capitalized.
-        if format_name: 
+        if format_name:
             if name in self._dictionary:
                 name_copy = self._dictionary[name_copy]
             else:
                 name_copy = name.capitalize()
                 name_copy = name_copy.replace('_', '%20')
-
 
         # Return a copy of any previously found results.
         if (name_copy, rank_limit) in self._phylogeny_cache:
@@ -142,9 +139,8 @@ class PhylogenyComparator:
                 break
         return ret
 
-
     def compare_phylogeny(self, truth_name: str, track_name: str, format_name=False,
-                      rank_limit=None) -> int:
+                          rank_limit=None) -> int:
         """Returns the number of differing phylogenetic classifications between the 
         truth_name and track_name, as well as the largest number of phylogenetic
         classification layers.
@@ -179,8 +175,10 @@ class PhylogenyComparator:
             return self._phylogeny_comparison_cache[(track_name, truth_name)]
 
         # Get the taxonomy sequence for both truth and tracked classifications.
-        truth_phylogeny = self.get_phylogeny(truth_name, format_name, rank_limit)
-        track_phylogeny = self.get_phylogeny(track_name, format_name, rank_limit)
+        truth_phylogeny = self.get_phylogeny(
+            truth_name, format_name, rank_limit)
+        track_phylogeny = self.get_phylogeny(
+            track_name, format_name, rank_limit)
 
         differences = 0
         # Count any differences in the sequences
@@ -192,9 +190,8 @@ class PhylogenyComparator:
             differences += abs(len(truth_phylogeny) - len(track_phylogeny))
         # Save a copy of the results.
         self._phylogeny_comparison_cache[(truth_name, track_name)] = (differences,
-                                                                max(len(truth_phylogeny), len(track_phylogeny)))
+                                                                      max(len(truth_phylogeny), len(track_phylogeny)))
         return (differences, max(len(truth_phylogeny), len(track_phylogeny)))
-
 
     def compare_phylogeny_from_row(self, row: pd.Series, truth_data, model_data):
         """ Computes the differences in phylogeny for a single row of the
@@ -206,7 +203,7 @@ class PhylogenyComparator:
                 The row of the MOTAccumulator, as a Series. The name of the 
                 row should be in the form (frame_num, event_id) and it 
                 should include the columns 'OId' and 'HId'.
-            
+
             truth_data: {}
                 The parsed truth output. This should be in a form matching
                 the output of parse_XML_by_frame.
@@ -230,11 +227,10 @@ class PhylogenyComparator:
 
         # Compare the phylogeny of the two
         diff, total = self.compare_phylogeny(truth_frame['class_name'],
-                                        model_frame['class_name'],
-                                        format_name=True,
-                                        rank_limit='kingdom')
+                                             model_frame['class_name'],
+                                             format_name=True,
+                                             rank_limit='kingdom')
         return (diff, total)
-
 
     def add_definition(self, key: str, value: str):
         """Adds a new definition to the internal dictionary used to replace classifications."""
@@ -296,7 +292,7 @@ def build_cost_matrix(truth_objects: [], model_objects: [], iou=False,
         truth_objects: [{}]
           A list of truth detections, where each detection is an object 
           with the keys xbr, xtl, ybr, xtl corresponding to number coords.
-          
+
         model_objects: [{}]
           A list of model output detections, in the same format.
 
@@ -320,15 +316,15 @@ def build_cost_matrix(truth_objects: [], model_objects: [], iou=False,
     if iou:
         # Use Intersection over Union
         # Convert detection boxes to coords given by [X, Y, Width, Height]
-        truth_coords = list(map(lambda x: [float(x['xtl']),  
+        truth_coords = list(map(lambda x: [float(x['xtl']),
                                            float(x['ytl']),
                                            float(x['xbr']) - float(x['xtl']),
-                                           float(x['ybr']) - float(x['ybr'])], 
+                                           float(x['ybr']) - float(x['ybr'])],
                                 truth_objects))
-        model_coords = list(map(lambda x: [float(x['xtl']),  
+        model_coords = list(map(lambda x: [float(x['xtl']),
                                            float(x['ytl']),
                                            float(x['xbr']) - float(x['xtl']),
-                                           float(x['ybr']) - float(x['ybr'])], 
+                                           float(x['ybr']) - float(x['ybr'])],
                                 model_objects))
         return mm.distances.iou_matrix(np.array(truth_coords),
                                        np.array(model_coords),
@@ -337,11 +333,11 @@ def build_cost_matrix(truth_objects: [], model_objects: [], iou=False,
         # Use Euclidean Norm2Squared
         # Convert detection boxes to center points, [X, Y]
         truth_coords = np.array(list(map(lambda x: [(float(x['xbr']) - float(x['xtl']))/2.,
-                                           (float(x['ybr']) - float(x['ytl']))/2.], 
-                                truth_objects)))
+                                                    (float(x['ybr']) - float(x['ytl']))/2.],
+                                         truth_objects)))
         model_coords = np.array(list(map(lambda x: [(float(x['xbr']) - float(x['xtl']))/2.,
-                                           (float(x['ybr']) - float(x['ytl']))/2.], 
-                                model_objects)))
+                                                    (float(x['ybr']) - float(x['ytl']))/2.],
+                                         model_objects)))
         return mm.distances.norm2squared_matrix(np.array(truth_coords),
                                                 np.array(model_coords))
 
@@ -383,7 +379,8 @@ def build_mot_accumulator(truth_framedata: {},
         model_curr_frame = model_framedata.get(str(i), [])
 
         # Build the distance/cost matrix.
-        dist_matrix = build_cost_matrix(truth_curr_frame, model_curr_frame, iou=False)
+        dist_matrix = build_cost_matrix(
+            truth_curr_frame, model_curr_frame, iou=False)
 
         # Get the object indices of detections for the truth and model as arrays.
         truth_indices = list(map(lambda det: int(det['id']), truth_curr_frame))
@@ -423,7 +420,7 @@ def find_detection(src_framedata: [], frame: int, id: int):
 
 
 def build_metadata_table(truth_framedata: {}, model_framedata: {},
-                         mot_acc: mm.MOTAccumulator, 
+                         mot_acc: mm.MOTAccumulator,
                          phylogeny_comparator=PhylogenyComparator()) -> pd.DataFrame:
     """ Builds a DataFrame that extends the accumulator's event table with  
         metadata and phylogenetic comparisons from the model's framedata.
@@ -442,7 +439,7 @@ def build_metadata_table(truth_framedata: {}, model_framedata: {},
 
         mot_acc: A motmetrics.MOTAccumulator to retrieve the MOTEvents from, as
             given by build_mot_accumulator.
-        
+
         phylogeny_comparator: (optional) A PhylogenyComparator to be used for
             calculating the differences between calculations. (Reusing the same
             PhylogenyComparator for multiple evaluations is more efficient!)
@@ -484,12 +481,12 @@ def build_metadata_table(truth_framedata: {}, model_framedata: {},
     # Add in the phylogenetic classifications, one column for the totals and one
     # for the differences.
     events['classif_diff'] = events.apply(
-        lambda x: phylogeny_comparator.compare_phylogeny_from_row(x, 
-                                       truth_framedata, model_framedata)[0],
+        lambda x: phylogeny_comparator.compare_phylogeny_from_row(x,
+                                                                  truth_framedata, model_framedata)[0],
         axis=1)
     events['classif_total'] = events.apply(
-        lambda x: phylogeny_comparator.compare_phylogeny_from_row(x, 
-                                       truth_framedata, model_framedata)[1],
+        lambda x: phylogeny_comparator.compare_phylogeny_from_row(x,
+                                                                  truth_framedata, model_framedata)[1],
         axis=1)
 
     return events
@@ -526,8 +523,7 @@ if __name__ == "__main__":
         sys.exit()
     if (len(sys.argv) < 3):
         print("Too many arguments.")
-        print(
-            "Usage: python3 ./evaluate_model.py [truth file XML] [model output XML]")
+        print("Usage: python3 ./evaluate_model.py [truth file XML] [model output XML]")
         sys.exit()
 
     print_evaluation(sys.argv[1], sys.argv[2])
