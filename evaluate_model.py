@@ -319,12 +319,12 @@ def build_cost_matrix(truth_objects: [], model_objects: [], iou=False,
         truth_coords = list(map(lambda x: [float(x['xtl']),
                                            float(x['ytl']),
                                            float(x['xbr']) - float(x['xtl']),
-                                           float(x['ybr']) - float(x['ybr'])],
+                                           float(x['ybr']) - float(x['ytl'])],
                                 truth_objects))
         model_coords = list(map(lambda x: [float(x['xtl']),
                                            float(x['ytl']),
                                            float(x['xbr']) - float(x['xtl']),
-                                           float(x['ybr']) - float(x['ybr'])],
+                                           float(x['ybr']) - float(x['ytl'])],
                                 model_objects))
         return mm.distances.iou_matrix(np.array(truth_coords),
                                        np.array(model_coords),
@@ -338,8 +338,12 @@ def build_cost_matrix(truth_objects: [], model_objects: [], iou=False,
         model_coords = np.array(list(map(lambda x: [(float(x['xbr']) - float(x['xtl']))/2.,
                                                     (float(x['ybr']) - float(x['ytl']))/2.],
                                          model_objects)))
-        return mm.distances.norm2squared_matrix(np.array(truth_coords),
-                                                np.array(model_coords))
+        matrix = mm.distances.norm2squared_matrix(np.array(truth_coords),
+                                                np.array(model_coords),
+                                                max_d2=d2_cutoff)
+        # Normalize to cutoff
+        npmatrix = np.array(matrix)
+        return npmatrix / d2_cutoff
 
 
 def build_mot_accumulator(truth_framedata: {},
@@ -482,12 +486,12 @@ def build_metadata_table(truth_framedata: {}, model_framedata: {},
     # Add in the classification names for both the truth and model detection.
     events['Hclass_name'] = events.apply(
         lambda x: find_detection(truth_framedata, x.name[0], x['HId']).get(
-            'class_name', float('nan')),
+            'class_name', "N/A"),
         axis=1
     )
     events['Oclass_name'] = events.apply(
         lambda x: find_detection(model_framedata, x.name[0], x['OId']).get(
-            'class_name', float('nan')),
+            'class_name', "N/A"),
         axis=1
     )
 
