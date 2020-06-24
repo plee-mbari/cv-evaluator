@@ -5,6 +5,7 @@
 import convert_json as cj
 import evaluate_model as em
 import motmetrics as mm
+import pandas as pd
 import json
 import sys
 import argparse
@@ -25,6 +26,9 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--test_directory', help="The test directory to use as truth data."
                         + " By default, uses './test/' in the local path.",
                         default="./test/")
+    parser.add_argument('-o', '--output_path', help='The filepath to output the results to. '
+                        + " by default, uses './output.xlsx' in the local path.",
+                        default="./output.xlsx")
 
     args = parser.parse_args()
 
@@ -40,7 +44,7 @@ if __name__ == "__main__":
         config = json.load(c)
     tests = config["tests"]
     if not tests:
-        print("No tests found. (Register tests in config.json)")
+        print("\nNo tests found. (Register tests in config.json)\n")
         exit()
     
     # For each test, verify that we have a matching .xml file in our test directory.
@@ -50,7 +54,7 @@ if __name__ == "__main__":
             print("Could not find {TEST}.xml in {DIR}".format(TEST=test, DIR=args.test_directory))
             exit()
 
-    print("{} tests loaded. Starting...".format(len(tests)))
+    print("\n{} test(s) loaded. Starting...".format(len(tests)))
 
     # For each test, determine whether the model directory has the necessary xml file. If not,
     # run the JSON file converter. Then, evaluate and add it to our accumulator.
@@ -59,7 +63,7 @@ if __name__ == "__main__":
     for testname in tests:
         model_dir = "{DIR}/{TEST}".format(DIR=args.model_directory, TEST=testname)
         if not os.path.exists(model_dir) or not os.path.isdir(model_dir):
-            print("Could not find model directory {DIR}.".format(DIR=model_dir))
+            print("Could not find model directory {DIR}.\n".format(DIR=model_dir))
             exit()
         
         truth_file = "{DIR}/{TEST}.xml".format(DIR=args.test_directory, TEST=testname)
@@ -81,16 +85,41 @@ if __name__ == "__main__":
         # Save the results.
         results_acc.append(mot_acc)
         results_meta.append(meta_table)
-    
-    print(results_acc)
+      
     # Print the results. Down the line we'll probably want to save the metadata tables to
     # an Excel spreadsheet.
     mh = mm.metrics.create()
-    summary = mh.compute_many(results_acc, names=tests, generate_overall=True)
+    summary = mh.compute_many(results_acc, metrics=mm.metrics.motchallenge_metrics, names=tests, generate_overall=True)
     strsummary = mm.io.render_summary(
             summary,
             formatters=mh.formatters,
             namemap=mm.io.motchallenge_metric_names
     )
     print(strsummary)
+    
+    # Write to Excel Doc
+    writer = pd.ExcelWriter(args.output_path, engine='xlsxwriter')
+    summary.to_excel(writer, sheet_name='Summary')
+    # Format summary sheet
+    workbook = writer.book
+    dec_fmt = workbook.add_format({'num_format': '0.000'})
+    frac_fmt = workbook.add_format({'num_format': '0.0%'})
 
+    sum_sheet = writer.sheets['Summary']
+    sum_sheet.set_column('A:A', 20)
+    sum_sheet.set_column('G:G', 22)
+    sum_sheet.set_column('H:M', 15)
+    sum_sheet.set_column('K:K', 22)
+    sum_sheet.set_column('N:N', 22)
+    sum_sheet.set_column('O:O', 10, frac_fmt)
+    sum_sheet.set_column('P:P', 10, dec_fmt)
+    sum_sheet.set_column('Q:S', 15)
+
+    for i in range(len(tests)):
+        results_meta[i].to_excel(writer, sheet_name=tests[i])
+        worksheet = writer.sheets[tests[i]]
+
+
+    writer.save()
+
+    print("\nWrote output to '{OUT}'.\n".format(OUT=args.output_path))

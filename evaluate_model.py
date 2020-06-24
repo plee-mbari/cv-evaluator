@@ -457,16 +457,28 @@ def build_metadata_table(truth_framedata: {}, model_framedata: {},
 
     # The meta tags that we will store in the new DataFrame.
     meta_tags = ["class_name", "confidence", "occluded_pixels", "surprise"]
+    # Indicates meta tags that should be casted.
+    meta_num = [False, True, True, True]
 
-    for tag in meta_tags:
+    for i in range(len(meta_tags)):
         # Get the corresponding detection to this row, and add in a new column
         # for that meta tag.
-        events[tag] = events.apply(
-            lambda x: find_detection(model_framedata,
-                                     x.name[0],  # Frame number
-                                     x['HId'])   # The ID number of the detection
-            .get(tag, float('nan')),  # Get the tag property.
-            axis=1)
+        tag = meta_tags[i]
+        is_num = meta_num[i]
+        if is_num:
+            events[tag] = events.apply(
+                lambda x: pd.to_numeric(find_detection(model_framedata,
+                                        x.name[0],  # Frame number
+                                        x['HId'])   # The ID number of the detection
+                          .get(tag, float('nan'))),  # Get the tag property.
+                axis=1)
+        else:    
+            events[tag] = events.apply(
+                lambda x: find_detection(model_framedata,
+                                        x.name[0],  # Frame number
+                                        x['HId'])   # The ID number of the detection
+                .get(tag, float('nan')),  # Get the tag property.
+                axis=1)
     # Add in the classification names for both the truth and model detection.
     events['Hclass_name'] = events.apply(
         lambda x: find_detection(truth_framedata, x.name[0], x['HId']).get(
