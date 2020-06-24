@@ -278,7 +278,7 @@ def convert_json_to_xml(destination: str, json_src: []):
 
     # Note that we assume each file to correspond to exactly one frame.
     xml_string = convert_annotations_to_XML(
-        framedata, len(files), frame_offset)
+        framedata, len(json_src), frame_offset)
     formatted_xml = xml.dom.minidom.parseString(xml_string).toprettyxml()
 
     # Output to the file, truncating any existing data.

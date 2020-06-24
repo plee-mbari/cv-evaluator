@@ -352,6 +352,7 @@ def build_mot_accumulator(truth_framedata: {},
         truth_framedata: The data for the ground-truth output, parsed as a dictionary
               where the keys are frame numbers mapping to lists of detections for that
               frame. (as given by parse_XML_by_frame)
+              
         model_framedata: The data for the model's output, in the same format as the
               truth_framedata.
 
