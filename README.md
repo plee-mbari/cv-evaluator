@@ -13,12 +13,12 @@ The main test driver is run_benchmark.py. You can specify a *test directory*, a 
 ```
   
 A **test directory** must have a CVAT-compatible XML annotation file for each test, as specified in the config file.
-  ```
+```
 /folder/
   |---- testname1.xml
   |---- testname2.xml
   |---- ...
-  ```
+```
   
 The **model output directory** must have a matching directory for each config-specified test. The directory should either have a single JSON file for each model-output frame, or 'result.xml' file that summarizes the annotations. If no result.xml file is found, one will be automatically generated.
 ```
