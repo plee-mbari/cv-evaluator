@@ -406,8 +406,10 @@ def find_detection(src_framedata: [], frame: int, id: int):
         src_framedata: {}
           A dictionary where the keys are frame numbers and the values are lists
           of detections, formatted as dictionary objects.
+
         frame: int
           The frame number to match.
+
         id: int
           The tracking id number to match.
 
@@ -460,9 +462,9 @@ def build_metadata_table(truth_framedata: {}, model_framedata: {},
     events = mot_acc.mot_events.copy()
 
     # The meta tags that we will store in the new DataFrame.
-    meta_tags = ["class_name", "confidence", "occluded_pixels", "surprise"]
-    # Indicates meta tags that should be casted.
-    meta_num = [False, True, True, True]
+    meta_tags = ["confidence", "occluded_pixels", "surprise"]
+    # Indicates meta tags that should be casted to numbers.
+    meta_num = [True, True, True]
 
     for i in range(len(meta_tags)):
         # Get the corresponding detection to this row, and add in a new column
@@ -484,13 +486,13 @@ def build_metadata_table(truth_framedata: {}, model_framedata: {},
                 .get(tag, float('nan')),  # Get the tag property.
                 axis=1)
     # Add in the classification names for both the truth and model detection.
-    events['Hclass_name'] = events.apply(
-        lambda x: find_detection(truth_framedata, x.name[0], x['HId']).get(
+    events['Oclass_name'] = events.apply(
+        lambda x: find_detection(truth_framedata, x.name[0], x['OId']).get(
             'class_name', "N/A"),
         axis=1
     )
-    events['Oclass_name'] = events.apply(
-        lambda x: find_detection(model_framedata, x.name[0], x['OId']).get(
+    events['Hclass_name'] = events.apply(
+        lambda x: find_detection(model_framedata, x.name[0], x['HId']).get(
             'class_name', "N/A"),
         axis=1
     )
