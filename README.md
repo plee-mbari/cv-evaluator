@@ -2,7 +2,7 @@
 Benchmarks and evaluation tests for computer vision detection/tracking algorithms. Developed by Peyton Lee for the Monterey Bay Aquarium Research Institute.
 
 ### Testing Organization
-The main test driver is run_benchmark.py. You can specify a *test directory*, a *model output directory*, and an *output path*.
+The main test driver is run_benchmark.py.
 ```
   Arguments:
   model_directory: the directory of the model output to test against.
