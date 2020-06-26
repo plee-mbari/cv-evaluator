@@ -511,6 +511,62 @@ def build_metadata_table(truth_framedata: {}, model_framedata: {},
     return events
 
 
+def add_to_species_table(row: pd.Series, table: pd.DataFrame, accepted_events: {}):
+    o_sp_name = row.get('Oclass_name', None)
+    h_sp_name = row.get('Hclass_name', None)
+    event_type = row['Type']
+
+    if event_type not in accepted_events:
+        print("Does not accept type '{}'.".format(event_type))
+        return
+
+    if o_sp_name:
+        if o_sp_name not in table:
+            # The species is new/not in table.
+            table.loc[o_sp_name] = pd.Series(np.zeros(len(accepted_events) + 2, dtype=int), name=o_sp_name)
+            for event in accepted_events:
+                table.loc[o_sp_name][event] = 0
+            table.loc[o_sp_name]['OFreq'] = 0
+            table.loc[o_sp_name]['HFreq'] = 0
+        table.loc[o_sp_name][event_type] = table.loc[o_sp_name][event_type] + 1
+        table.loc[o_sp_name]['OFreq'] = table.loc[o_sp_name]['OFreq'] + 1
+    # Repeat for the hypothesis
+    if h_sp_name:
+        if h_sp_name not in table:
+            # The species is new/not in table.
+            table.loc[h_sp_name] = pd.Series(np.zeros(len(accepted_events) + 2, dtype=int), name=h_sp_name)
+            for event in accepted_events:
+                table.loc[h_sp_name][event] = 0
+            table.loc[h_sp_name]['OFreq'] = 0
+            table.loc[h_sp_name]['HFreq'] = 0
+        table.loc[h_sp_name][event_type] = int(table.loc[h_sp_name][event_type]) + 1
+        table.loc[h_sp_name]['HFreq'] = int(table.loc[h_sp_name]['HFreq']) + 1
+
+def get_species_breakdown(metadata_tables: [pd.DataFrame]) -> pd.DataFrame:
+    """ Creates a dataframe with metrics on the detection of each species.
+    """
+    # Generate a set of all classifications that were made.
+    classifiers = []
+    for table in metadata_tables:
+        # Concatenate the observation and hypothesis names, then filter so only unique labels are left.
+        classifiers = np.concatenate((classifiers, table["Oclass_name"].unique(), table["Hclass_name"].unique()))
+        classifiers = np.unique(classifiers)
+
+    # Columns include counts for each of the events, plus all other classifiers as guesses.
+    columns = ["MATCH", "SWITCH", "MISS", "FP", "TRANSFER", "OFreq", "HFreq"].extend(classifiers)
+    accepted_events = {"MATCH", "SWITCH", "MISS", "FP", "TRANSFER"} # Ignoring ASCEND, RAW, MIGRATE events
+
+    ret_df = pd.DataFrame(columns=columns, index=classifiers)
+
+    # Merge all of the metadata tables into one supertable.
+    meta_df = pd.DataFrame()
+    for table in metadata_tables:
+        meta_df = meta_df.append(table)
+    
+    
+    
+    return ret_df
+
 def print_evaluation(truth_file, model_file):
     truth_framedata = parse_XML_by_frame(truth_file)
     model_framedata = parse_XML_by_frame(model_file)

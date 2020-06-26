@@ -85,7 +85,9 @@ if __name__ == "__main__":
         # Save the results.
         results_acc.append(mot_acc)
         results_meta.append(meta_table)
-      
+    
+    sp_breakdown = em.get_species_breakdown(results_meta)
+
     # Print the results. Down the line we'll probably want to save the metadata tables to
     # an Excel spreadsheet.
     mh = mm.metrics.create()
@@ -118,7 +120,14 @@ if __name__ == "__main__":
     for i in range(len(tests)):
         results_meta[i].to_excel(writer, sheet_name=tests[i])
         worksheet = writer.sheets[tests[i]]
+        worksheet.set_column('D:E', 7)
+        worksheet.set_column('F:F', 10, dec_fmt)
+        worksheet.set_column('G:H', 15)
+        worksheet.set_column('J:K', 18)
+        worksheet.set_column('L:M', 15)
 
+    sp_breakdown.to_excel(writer, 'Species Breakdown')
+    print (sp_breakdown)
 
     writer.save()
 

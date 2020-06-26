@@ -1,0 +1,7 @@
+{
+    "tests":[
+        "benthic_flatfish",
+        "flatfish2"
+    ],
+    "scale": 2.0
+}
