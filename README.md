@@ -31,3 +31,5 @@ The **model output directory** must have a matching directory for each config-sp
         |--- result.xml
 ```
 
+The **output XLSX file** has a summary sheet, with the breakdown of the metrics for each test and the overall metrics, and an individual events page for each test sequence. 
+
