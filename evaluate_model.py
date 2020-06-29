@@ -550,11 +550,12 @@ def get_species_breakdown(metadata_tables: [pd.DataFrame]) -> pd.DataFrame:
     for table in metadata_tables:
         # Concatenate the observation and hypothesis names, then filter so only unique labels are left.
         classifiers = np.concatenate((classifiers, table["Oclass_name"].unique(), table["Hclass_name"].unique()))
-        classifiers = np.unique(classifiers)
+        # Filter out None and find unique values
+        classifiers = np.unique(classifiers[classifiers != np.array(None)])
 
     # Columns include counts for each of the events, plus all other classifiers as guesses.
-    columns = ["MATCH", "SWITCH", "MISS", "FP", "TRANSFER", "OFreq", "HFreq"].extend(classifiers)
-    accepted_events = {"MATCH", "SWITCH", "MISS", "FP", "TRANSFER"} # Ignoring ASCEND, RAW, MIGRATE events
+    columns = ["MATCH", "SWITCH", "MISS", "FP", "TRANSFER", "ASCEND", "MIGRATE", "OFreq", "HFreq"]
+    columns.extend(classifiers)
 
     ret_df = pd.DataFrame(columns=columns, index=classifiers)
 
@@ -563,8 +564,39 @@ def get_species_breakdown(metadata_tables: [pd.DataFrame]) -> pd.DataFrame:
     for table in metadata_tables:
         meta_df = meta_df.append(table)
     
-    
-    
+    for class_name in classifiers:
+        # Find all rows of the supertable that correspond to the class_name
+        rows = meta_df.query('Oclass_name=="{NAME}" | Hclass_name=="{NAME}"'.format(NAME=class_name))
+        # Generate a series and count the number of matching events.
+        """
+        for event in accepted_events:
+            event_rows = rows.query('Type=="{}"'.format(event))
+            class_series[event] = len(event_rows)
+        """
+        event_count = rows['Type'].value_counts()
+
+        # For each classifier, count the number of matches that were made with this class_name and add
+        # to our series.
+        matches = rows.query('Type=="MATCH"')
+        hclass_count = matches['Hclass_name'].value_counts()
+        oclass_count = matches['Oclass_name'].value_counts()
+
+        freq = {}
+        freq["HFreq"] = hclass_count.get(class_name, 0)
+        freq["OFreq"] = oclass_count.get(class_name, 0)
+        freq_count = pd.Series(freq)
+
+        tclass_count = hclass_count.add(oclass_count, fill_value=0)
+
+        # Because this class is double-counted, we subtract the number of matches from
+        # the class count.
+        # tclass_count[class_name] -= matches.shape[0]
+
+        # Append the series to our ret_df.
+        class_series = freq_count.append(event_count)
+        class_series = class_series.append(tclass_count)
+        class_series.name = class_name
+        ret_df.loc[class_name] = class_series
     return ret_df
 
 def print_evaluation(truth_file, model_file):
