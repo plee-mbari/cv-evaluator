@@ -3,5 +3,6 @@
         "benthic_flatfish",
         "flatfish2"
     ],
-    "scale": 2.0
+    "scale": 2.0,
+    "replace_names_in_output": true
 }

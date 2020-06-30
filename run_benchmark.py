@@ -10,6 +10,28 @@ import json
 import sys
 import argparse
 import os.path
+import xlsxwriter.worksheet
+
+def autofit_worksheet_columns(worksheet: xlsxwriter.worksheet, df: pd.DataFrame, autofit_header=True):
+    offset = 1
+
+    if isinstance(df.index, pd.MultiIndex):
+        offset = df.index.nlevels
+
+    #Iterate through each column and set the width to the max length of values in that column.
+    for i, col in enumerate(df.columns):
+        column_len = df[col].astype(str).str.len().max()
+        # Considers the header if the flag is set.
+        if autofit_header:
+            column_len = max(column_len, len(col)) + 2
+        worksheet.set_column(i + offset, i + offset, column_len)
+    
+    # Also, format the index as well.
+    if not isinstance(df.index, pd.MultiIndex):
+        max_index = df.index.astype(str).str.len().max()
+        worksheet.set_column(0, 0, max_index)
+        worksheet.freeze_panes(1, 1)
+
 
 if __name__ == "__main__":
     """ """
@@ -77,8 +99,15 @@ if __name__ == "__main__":
             cj.convert_json_to_xml(track_file, files)
         
         # Evaluate the tracker against the truth file and save the results.
-        truth_framedata = em.parse_XML_by_frame(truth_file)
-        track_framedata = em.parse_XML_by_frame(track_file)
+        truth_framedata, track_framedata = {}, {}
+        if config.get('replace_names_in_output', False):
+            # Replace the names with phylogenydict entries if matches are found.
+            truth_framedata = em.parse_XML_by_frame(truth_file, phylogenydict)
+            track_framedata = em.parse_XML_by_frame(track_file, phylogenydict)
+        else:
+            # Keep output as-is.
+            truth_framedata = em.parse_XML_by_frame(truth_file)
+            track_framedata = em.parse_XML_by_frame(track_file)
         mot_acc = em.build_mot_accumulator(truth_framedata, track_framedata)
         meta_table = em.build_metadata_table(truth_framedata, track_framedata, mot_acc, pc)
 
@@ -101,33 +130,34 @@ if __name__ == "__main__":
     
     # Write to Excel Doc
     writer = pd.ExcelWriter(args.output_path, engine='xlsxwriter')
-    summary.to_excel(writer, sheet_name='Summary')
     # Format summary sheet
     workbook = writer.book
     dec_fmt = workbook.add_format({'num_format': '0.000'})
-    frac_fmt = workbook.add_format({'num_format': '0.0%'})
+    percent_fmt = workbook.add_format({'num_format': '0.0%'})
 
+    summary.to_excel(writer, sheet_name='Summary')
     sum_sheet = writer.sheets['Summary']
-    sum_sheet.set_column('A:A', 20)
-    sum_sheet.set_column('G:G', 22)
-    sum_sheet.set_column('H:M', 15)
-    sum_sheet.set_column('K:K', 22)
-    sum_sheet.set_column('N:N', 22)
-    sum_sheet.set_column('O:O', 10, frac_fmt)
-    sum_sheet.set_column('P:P', 10, dec_fmt)
-    sum_sheet.set_column('Q:S', 15)
+    autofit_worksheet_columns(sum_sheet, summary)
+
+    # Set decimal and percentage formatting
+    for label in ['idf1', 'idp', 'precision', 'motp']:
+        column_num = summary.columns.get_loc(label) + 1
+        column_len = max(6, len(label)) + 2
+        sum_sheet.set_column(column_num, column_num, column_len, dec_fmt)
+    for label in ['mota']:
+        column_num = summary.columns.get_loc(label) + 1
+        column_len = max(8, len(label)) + 2
+        sum_sheet.set_column(column_num, column_num, column_len, percent_fmt)
 
     for i in range(len(tests)):
         results_meta[i].to_excel(writer, sheet_name=tests[i])
         worksheet = writer.sheets[tests[i]]
-        worksheet.set_column('D:E', 7)
-        worksheet.set_column('F:F', 10, dec_fmt)
-        worksheet.set_column('G:H', 15)
-        worksheet.set_column('J:K', 18)
-        worksheet.set_column('L:M', 15)
+        autofit_worksheet_columns(worksheet, results_meta[i])
+        d_column = results_meta[i].columns.get_loc('D') + 2
+        worksheet.set_column(d_column, d_column, 8, dec_fmt)
 
-    sp_breakdown.to_excel(writer, 'Species Breakdown')
-    print (sp_breakdown)
+    sp_breakdown.to_excel(writer, sheet_name='Species Breakdown')
+    autofit_worksheet_columns(writer.sheets['Species Breakdown'], sp_breakdown)
 
     writer.save()
 

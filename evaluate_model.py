@@ -167,6 +167,9 @@ class PhylogenyComparator:
         1) The differences between the two phylogenetic sequences and 2) the max
         number of classification layers present.
         """
+        if truth_name is None or track_name is None:
+            return (0, 0)
+
         # Check if we've already made this comparison before. If so, we can return
         # our cached results.
         if (truth_name, track_name) in self._phylogeny_comparison_cache:
@@ -219,7 +222,7 @@ class PhylogenyComparator:
         frame_num = int(row.name[0])
         # Find the dictionary corresponding to the frame and ID
         truth_frame = self.__find_detection(truth_data, frame_num, row['OId'])
-        model_frame = self.__find_detection(model_data, frame_num, row['OId'])
+        model_frame = self.__find_detection(model_data, frame_num, row['HId'])
 
         # Check if we found the detections, if not we return.
         if not model_frame or not truth_frame:
@@ -239,10 +242,12 @@ class PhylogenyComparator:
 # End class PhylogenyComparator
 
 
-def parse_XML_by_frame(xml_file: str):
+def parse_XML_by_frame(xml_file: str, name_dictionary={}):
     """ Parses a CVAT output XML string into a dictionary, where the keys are the
         frame numbers and the corresponding values are arrays of the attributes of
         the detections.
+        An optional dictionary can be passed in, which will be used to replace the 
+        class_name property if a match is found.
 
         ex:
 
@@ -270,15 +275,21 @@ def parse_XML_by_frame(xml_file: str):
             frame_dict = {}
             frame_dict.update(track.attrib)
             frame_dict.update(box.attrib)
+
             # Get all of the attribute subelements.
             for attribute in box.findall('attribute'):
                 frame_dict[attribute.get('name')] = attribute.text
+
+            # Check if the class_name property is in our dictionary, and
+            # if so, replace it.
+            if frame_dict['class_name'] in name_dictionary:
+                frame_dict['class_name'] = name_dictionary[frame_dict['class_name']]
+
             # Save the frame_dict.
             frame_num = box.get('frame')
             if frame_num not in ret:
                 ret[frame_num] = []
             ret[frame_num].append(frame_dict)
-
     return ret
 
 
