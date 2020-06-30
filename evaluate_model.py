@@ -550,8 +550,8 @@ def get_species_breakdown(metadata_tables: [pd.DataFrame]) -> pd.DataFrame:
     for table in metadata_tables:
         # Concatenate the observation and hypothesis names, then filter so only unique labels are left.
         classifiers = np.concatenate((classifiers, table["Oclass_name"].unique(), table["Hclass_name"].unique()))
-        # Filter out None and find unique values
-        classifiers = np.unique(classifiers[classifiers != np.array(None)])
+        # Filter out None and N/A, then simplify to unique values.
+        classifiers = np.unique(classifiers[(classifiers != np.array(None)) & (classifiers != np.array("N/A"))])
 
     # Columns include counts for each of the events, plus all other classifiers as guesses.
     columns = ["MATCH", "SWITCH", "MISS", "FP", "TRANSFER", "ASCEND", "MIGRATE", "OFreq", "HFreq"]
