@@ -387,7 +387,6 @@ def build_mot_accumulator(truth_framedata: {},
         max_frame = int(max(truth_framedata.keys()))
 
     acc = mm.MOTAccumulator()
-    matches = {}
     # Loop through each frame and build the distance matrix.
     for i in range(max_frame + 1):
         # Get the array of detections for the current frame

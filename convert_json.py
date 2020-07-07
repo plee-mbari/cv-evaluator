@@ -76,8 +76,8 @@ def build_sub_element(parent: ET.Element, name: str, text="",  attrib={}) -> ET.
 
 
 def build_box_from_framedata(parent_element: ET.Element,
-                             framedata: {}, frame_override=-1, outside=0,
-                             occluded=0, keyframe=1):
+                             framedata: {}, compression_ratio: float, frame_override=-1, 
+                             outside=0, occluded=0, keyframe=1):
     """ Creates and returns a box XML element with coordinates and attributes
         given by the framedata.
 
@@ -88,6 +88,13 @@ def build_box_from_framedata(parent_element: ET.Element,
         framedata : The dictionary data for the given frame, as imported from MBARI standard
           data.
 
+        compression_ratio : float
+          (optional) The compression ratio of the image. All coordinates in the detection
+          are divided by the compression ratio to get the final corners of the bounding
+          box. Default is 0.5.
+
+        Kwargs
+        ------
         frame_override: int
           (optional) Used as the frame number of the framedata.
 
@@ -119,12 +126,12 @@ def build_box_from_framedata(parent_element: ET.Element,
     box.attrib["keyframe"] = str(keyframe)
 
     # Top left x, y and bottom right x, y of the bounding box.
-    box.attrib["xtl"] = str(framedata["bounding_box"]["x"]*2)
-    box.attrib["ytl"] = str(framedata["bounding_box"]["y"]*2)
-    box.attrib["xbr"] = str(framedata["bounding_box"]
-                            ["x"]*2 + framedata["bounding_box"]["width"]*2)
-    box.attrib["ybr"] = str(framedata["bounding_box"]
-                            ["y"]*2 + framedata["bounding_box"]["height"]*2)
+    box.attrib["xtl"] = str(framedata["bounding_box"]["x"] / compression_ratio)
+    box.attrib["ytl"] = str(framedata["bounding_box"]["y"] / compression_ratio)
+    box.attrib["xbr"] = str(framedata["bounding_box"]["x"] / compression_ratio +
+                            framedata["bounding_box"]["width"] / compression_ratio)
+    box.attrib["ybr"] = str(framedata["bounding_box"]["y"] / compression_ratio +
+                            framedata["bounding_box"]["height"] / compression_ratio)
 
     # build child attributes for the box to hold all of the other metadata.
     for field_name in MBARI_Data.attribute_types.keys():
@@ -136,7 +143,7 @@ def build_box_from_framedata(parent_element: ET.Element,
 
 
 def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
-                               frame_offset: int) -> str:
+                               frame_offset: int, compression_ratio) -> str:
     """ Converts a dictionary of frame data to a CVAT-readable XML.
 
     Parameters
@@ -151,6 +158,9 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
     frame_offset: int
       the offset of the first frame of the sequence. If the first frame 
       of the sequence is labelled 24, the offset should be 24.
+
+    compression_ratio : float
+      the compression ratio used on the tracker. 
 
     Returns
     -------
@@ -192,11 +202,11 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
             if last_frame_num < curr_framedata['frame_num'] - 1:
                 # Generate a dummy frame with the outside flag checked based on the
                 # previous framedata.
-                build_box_from_framedata(track, framedata_array[i-1],
+                build_box_from_framedata(track, framedata_array[i-1], compression_ratio,
                                          frame_override=last_frame_num - frame_offset + 1,
                                          outside=1)
             # Build the bounding box for this frame.
-            build_box_from_framedata(track, curr_framedata,
+            build_box_from_framedata(track, curr_framedata, compression_ratio,
                                      frame_override=curr_framedata['frame_num'] - frame_offset)
             last_frame_num = curr_framedata['frame_num']
 
@@ -204,9 +214,10 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
         # the end of the video.
         final_frame = framedata_array[len(framedata_array) - 1]
         if (final_frame['frame_num'] - frame_offset < total_frames - 1):
-            build_box_from_framedata(track, framedata_array[len(framedata_array) - 1],
-                                     frame_override=final_frame['frame_num'] -
-                                     frame_offset + 1,
+            build_box_from_framedata(track, 
+                                     framedata_array[len(framedata_array) - 1], 
+                                     compression_ratio,
+                                     frame_override=final_frame['frame_num'] - frame_offset + 1,
                                      outside=1)
 
     # Build rest of the metadata for the XML document.
@@ -261,7 +272,7 @@ def get_filepaths(*args) -> [str]:
     return files
 
 
-def convert_json_to_xml(destination: str, json_src: []):
+def convert_json_to_xml(destination: str, json_src: [], compression_ratio: float):
     """ Converts the list of json source files to a single, CVAT-compatible
         annotation file and writes to the defined destination.
     """
@@ -278,7 +289,7 @@ def convert_json_to_xml(destination: str, json_src: []):
 
     # Note that we assume each file to correspond to exactly one frame.
     xml_string = convert_annotations_to_XML(
-        framedata, len(json_src), frame_offset)
+        framedata, len(json_src), frame_offset, compression_ratio)
     formatted_xml = xml.dom.minidom.parseString(xml_string).toprettyxml()
 
     # Output to the file, truncating any existing data.
@@ -306,6 +317,6 @@ if __name__ == "__main__":
     files = get_filepaths(sys.argv[2: len(sys.argv)])
     print("Found {} JSON frames.".format(len(files)))
 
-    convert_json_to_xml(sys.argv[1], files)
+    convert_json_to_xml(sys.argv[1], files, 0.5)
 
     print("Operation successful.")

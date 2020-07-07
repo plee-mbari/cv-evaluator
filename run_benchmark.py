@@ -6,6 +6,7 @@ import convert_json as cj
 import evaluate_model as em
 import motmetrics as mm
 import pandas as pd
+from pandas import ExcelWriter
 import json
 import sys
 import argparse
@@ -51,6 +52,9 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output_path', help='The filepath to output the results to. '
                         + " by default, uses './output.xlsx' in the local path.",
                         default="./output.xlsx")
+    parser.add_argument('-r', '--compression_ratio', help='The compression ratio used by the tracker. '
+                        + " By default, uses a ratio of 0.5.",
+                        default=0.5, type=float)
 
     args = parser.parse_args()
 
@@ -96,7 +100,7 @@ if __name__ == "__main__":
             files = cj.get_filepaths("{MODEL_DIR}/f*.json".format(MODEL_DIR=model_dir))
             print("No result.xml found for test {TEST}. Converting {FNUM} JSON files to XML.".format(
                 TEST=test, FNUM=len(files)))
-            cj.convert_json_to_xml(track_file, files)
+            cj.convert_json_to_xml(track_file, files, args.compression_ratio)
         
         # Evaluate the tracker against the truth file and save the results.
         truth_framedata, track_framedata = {}, {}
@@ -129,7 +133,7 @@ if __name__ == "__main__":
     print(strsummary)
     
     # Write to Excel Doc
-    writer = pd.ExcelWriter(args.output_path, engine='xlsxwriter')
+    writer = pd.ExcelWriter(args.output_path, engine='xlsxwriter') # pylint: disable=abstract-class-instantiated
     # Format summary sheet
     workbook = writer.book
     dec_fmt = workbook.add_format({'num_format': '0.000'})
