@@ -279,13 +279,11 @@ def convert_json_to_xml(destination: str, json_src: [], compression_ratio: float
     # Read the file annotations to XML.
     framedata = read_JSON_annotations(json_src)
 
-    # Get the frame offset. This should be the smallest frame number in the sequence.
-    # Because framedata is a dictionary where {uuid: [frame1, frame2, ...], ...}, we
-    # extract the minimum frame_num from each frame.
-    frame_offset = float("inf")
-    for uuid in framedata.keys():
-        for frame in framedata[uuid]:
-            frame_offset = min(frame_offset, frame['frame_num'])
+    # Get the frame offset. This should be the smallest frame number in the sequence
+    # of JSON frames.
+    # Strip out the six-digit frame number from the format "path/f------.xml"
+    min_json_file = min(json_src)
+    frame_offset = int(min_json_file[-9:-5])
 
     # Note that we assume each file to correspond to exactly one frame.
     xml_string = convert_annotations_to_XML(
