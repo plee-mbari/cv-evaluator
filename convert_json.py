@@ -55,14 +55,14 @@ class MBARI_Data:
     attribute_types = {'class_index': 'number',
                        'class_name': 'text',
                        'confidence': 'number',
-                       'occluded_pixels': 'number',
+                       'occlusion': 'number',
                        'surprise': 'number',
                        'uuid': 'text'}
     # Whether this attribute can be changed over the sequence.
     attribute_mutability = {'class_index': 'False',
                             'class_name': 'False',
                             'confidence': 'True',
-                            'occluded_pixels': 'True',
+                            'occlusion': 'True',
                             'surprise': 'True',
                             'uuid': 'False'}
 
@@ -258,7 +258,7 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
     return ET.tostring(annotations)
 
 
-def get_filepaths(*args) -> [str]:
+def get_filepaths(*args):
     """ Parses the given regex into a list of file paths.
 
         Params:
@@ -268,7 +268,12 @@ def get_filepaths(*args) -> [str]:
     """
     files = []
     for x in args:
-        files.extend(glob.glob(x))
+        # Check if x is a list or a file and handle separately.
+        if isinstance(x, list):
+            for file in x:
+                files.extend(glob.glob(file))
+        else:
+            files.extend(glob.glob(x))
     return files
 
 
