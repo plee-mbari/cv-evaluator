@@ -2,8 +2,10 @@
 # plee@mbari.org
 # Copyright Peyton Lee, MBARI 2020
 
-"""Evalutes a computer vision model by comparing its output to
-   ground-truth data."""
+"""
+Evalutes a computer vision tracker by comparing its output to
+a ground-truth dataset, generating CLEAR MOT metrics.
+"""
 
 import xml.etree.ElementTree as ET
 import motmetrics as mm
@@ -552,6 +554,7 @@ def add_to_species_table(row: pd.Series, table: pd.DataFrame, accepted_events: {
         table.loc[h_sp_name][event_type] = int(table.loc[h_sp_name][event_type]) + 1
         table.loc[h_sp_name]['HFreq'] = int(table.loc[h_sp_name]['HFreq']) + 1
 
+
 def get_species_breakdown(metadata_tables: [pd.DataFrame]) -> pd.DataFrame:
     """ Creates a dataframe with metrics on the detection of each species.
     """
@@ -609,7 +612,10 @@ def get_species_breakdown(metadata_tables: [pd.DataFrame]) -> pd.DataFrame:
         ret_df.loc[class_name] = class_series
     return ret_df
 
+
 def print_evaluation(truth_file, model_file):
+    """ Evaluates a 
+    """
     truth_framedata = parse_XML_by_frame(truth_file)
     model_framedata = parse_XML_by_frame(model_file)
 

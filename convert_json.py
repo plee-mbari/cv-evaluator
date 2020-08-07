@@ -9,16 +9,28 @@ import xml.etree.ElementTree as ET
 import xml.dom.minidom
 import glob
 import sys
-from datetime import datetime, timezone
 
+OUTPUT_ATTRIBUTE_TYPES = {'class_index': 'number',
+                       'class_name': 'text',
+                       'confidence': 'number',
+                       'occluded_pixels': 'number',
+                       'surprise': 'number',
+                       'uuid': 'text'}
 
-def read_JSON_annotations(files: [str]) -> {}:
+OUTPUT_ATTRIBUTE_MUTABILITY = {'class_index': 'False',
+                            'class_name': 'False',
+                            'confidence': 'True',
+                            'occluded_pixels': 'True',
+                            'surprise': 'True',
+                            'uuid': 'False'}
+
+def read_json_annotations(json_file_paths) -> {}:
     """ Reads the set of JSON annotations into a map from the uuid's to the Visual
     Events.
 
     Parameters
     ----------
-    files : an array of JSON files to read from. These should be from the same
+    json_file_paths : an array of JSON file paths to read from. These should be from the same
              annotated video. Each JSON file should be formatted to the MBARI
              standard (bounding box, class_index, class_name, uuid, etc.)
 
@@ -30,9 +42,9 @@ def read_JSON_annotations(files: [str]) -> {}:
         {uuid: [uuid_frame1, uuid_frame2, ...], ...}
     """
     ret = {}
-    for jsonfile in files:
+    for json_file in json_file_paths:
         # Read in the file JSON
-        with open(jsonfile) as f:
+        with open(json_file) as f:
             filedata = json.load(f)
 
         # Loop through the array containing the visual events
@@ -47,26 +59,6 @@ def read_JSON_annotations(files: [str]) -> {}:
             ret[uuid].append(eventdata)
     return ret
 
-# Class for static variables/fields.
-
-
-class MBARI_Data:
-    # Maps the attribute names to their types, written as strings.
-    attribute_types = {'class_index': 'number',
-                       'class_name': 'text',
-                       'confidence': 'number',
-                       'occluded_pixels': 'number',
-                       'surprise': 'number',
-                       'uuid': 'text'}
-    # Whether this attribute can be changed over the sequence.
-    attribute_mutability = {'class_index': 'False',
-                            'class_name': 'False',
-                            'confidence': 'True',
-                            'occluded_pixels': 'True',
-                            'surprise': 'True',
-                            'uuid': 'False'}
-
-
 def build_sub_element(parent: ET.Element, name: str, text="",  attrib={}) -> ET.Element:
     """ Builds an XML SubElement with the given parent, name, and text.
     """
@@ -76,7 +68,7 @@ def build_sub_element(parent: ET.Element, name: str, text="",  attrib={}) -> ET.
 
 
 def build_box_from_framedata(parent_element: ET.Element,
-                             framedata: {}, compression_ratio: float, frame_override=-1, 
+                             framedata: {}, compression_ratio: float, frame_override=-1,
                              outside=0, occluded=0, keyframe=1):
     """ Creates and returns a box XML element with coordinates and attributes
         given by the framedata.
@@ -116,7 +108,7 @@ def build_box_from_framedata(parent_element: ET.Element,
     box = ET.SubElement(parent_element, "box")
 
     # Set the frame number with the override.
-    if (frame_override == -1):
+    if frame_override == -1:
         box.attrib["frame"] = str(framedata["frame_num"] - 1)
     else:
         box.attrib["frame"] = str(frame_override)
@@ -134,7 +126,7 @@ def build_box_from_framedata(parent_element: ET.Element,
                             framedata["bounding_box"]["height"] / compression_ratio)
 
     # build child attributes for the box to hold all of the other metadata.
-    for field_name in MBARI_Data.attribute_types.keys():
+    for field_name in OUTPUT_ATTRIBUTE_TYPES.keys():
         attribute_element = ET.SubElement(
             box, 'attribute', attrib={'name': field_name})
         attribute_element.text = str(framedata[field_name])
@@ -156,11 +148,11 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
       the number of frames that were annotated.
 
     frame_offset: int
-      the offset of the first frame of the sequence. If the first frame 
+      the offset of the first frame of the sequence. If the first frame
       of the sequence is labelled 24, the offset should be 24.
 
     compression_ratio : float
-      the compression ratio used on the tracker. 
+      the compression ratio used on the tracker.
 
     Returns
     -------
@@ -174,7 +166,7 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
     meta = ET.SubElement(annotations, 'meta')
 
     # Build the track boxes for each uuid.
-    id = 0  # an integer id for each tracked object in sequence.
+    det_id = 0  # an integer id for each tracked object in sequence.
     labels = {'other'}  # the labels to include, given as the class names.
 
     for framedata_array in uuid_dict.values():
@@ -184,8 +176,8 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
 
         # Set up the tracking Element
         track = ET.SubElement(annotations, 'track')
-        track.set("id", str(id))
-        id += 1
+        track.set("id", str(det_id))
+        det_id += 1
         # Set a default object label. Change this if we decide to use other labels
         track.set('label', 'Obj')
         labels.add('Obj')
@@ -214,10 +206,11 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
         # the end of the video.
         final_frame = framedata_array[len(framedata_array) - 1]
         if (final_frame['frame_num'] - frame_offset < total_frames - 1):
-            build_box_from_framedata(track, 
-                                     framedata_array[len(framedata_array) - 1], 
+            build_box_from_framedata(track,
+                                     framedata_array[len(framedata_array) - 1],
                                      compression_ratio,
-                                     frame_override=final_frame['frame_num'] - frame_offset + 1,
+                                     frame_override=final_frame['frame_num'] -
+                                     frame_offset + 1,
                                      outside=1)
 
     # Build rest of the metadata for the XML document.
@@ -246,13 +239,13 @@ def convert_annotations_to_XML(uuid_dict: {}, total_frames: int,
         # Each label name has a series of attributes, each of which must include
         # data about the type, mutability, and name.
         label_attributes = build_sub_element(curr_label, 'attributes')
-        for attribute_name in MBARI_Data.attribute_types.keys():
+        for attribute_name in OUTPUT_ATTRIBUTE_TYPES.keys():
             curr_attribute = build_sub_element(label_attributes, 'attribute')
             build_sub_element(curr_attribute, 'name', attribute_name)
             build_sub_element(curr_attribute, 'mutable',
-                              MBARI_Data.attribute_mutability[attribute_name])
+                              OUTPUT_ATTRIBUTE_MUTABILITY[attribute_name])
             build_sub_element(curr_attribute, 'input_type',
-                              MBARI_Data.attribute_types[attribute_name])
+                              OUTPUT_ATTRIBUTE_TYPES[attribute_name])
             build_sub_element(curr_attribute, 'default_value')
             build_sub_element(curr_attribute, 'values')
     return ET.tostring(annotations)
@@ -277,7 +270,7 @@ def convert_json_to_xml(destination: str, json_src: [], compression_ratio: float
         annotation file and writes to the defined destination.
     """
     # Read the file annotations to XML.
-    framedata = read_JSON_annotations(json_src)
+    framedata = read_json_annotations(json_src)
 
     # Get the frame offset. This should be the smallest frame number in the sequence
     # of JSON frames.

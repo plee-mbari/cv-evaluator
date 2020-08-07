@@ -2,6 +2,10 @@
 # plee@mbari.org
 # Copyright Peyton Lee, MBARI 2020
 
+"""
+    Evaluates 
+"""
+
 import convert_json as cj
 import evaluate_model as em
 import motmetrics as mm
