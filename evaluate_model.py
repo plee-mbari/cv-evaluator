@@ -378,16 +378,30 @@ def build_mot_accumulator(truth_framedata: {},
         A motmetrics.MOTAccumulator that stores the matches and MOTEvents for all the
         frames in the input framedata.
     """
+    # Gut check here. Count and print the types of the keys to verify
+    # that they're integers.
+    int_key_count = 0
+    str_key_count = 0
+    for key in truth_framedata.keys():
+        if type(key) is str:
+            str_key_count += 1
+        elif type(key) is int:
+            int_key_count += 1
+    print("{} ints, {} strings out of {} keys".format(int_key_count, str_key_count, len(truth_framedata.keys())))
+    
     # Get the maximum number of frames.
     max_frame = -1
-    if model_framedata and truth_framedata:
-        max_frame = int(max(max(truth_framedata.keys()),
-                            max(model_framedata.keys())))
-    elif model_framedata:
-        max_frame = int(max(model_framedata.keys()))
-    elif truth_framedata:
-        max_frame = int(max(truth_framedata.keys()))
+    # Sort the frame keys?
+    if truth_framedata:
+        truth_frames = list(map(lambda x: int(x), truth_framedata.keys()))
+        max_frame = max(truth_frames)
+    if model_framedata:
+        model_frames = list(map(lambda x: int(x), model_framedata.keys()))
+        max_model_frame = max(model_frames)
+        max_frame = max(max_frame, max_model_frame)
 
+    print("max_frame is {}".format(max_frame))
+    
     acc = mm.MOTAccumulator()
     # Loop through each frame and build the distance matrix.
     for i in range(max_frame + 1):
@@ -397,7 +411,7 @@ def build_mot_accumulator(truth_framedata: {},
 
         # Build the distance/cost matrix.
         dist_matrix = build_cost_matrix(
-            truth_curr_frame, model_curr_frame, iou=False)
+            truth_curr_frame, model_curr_frame, iou=True)
 
         # Get the object indices of detections for the truth and model as arrays.
         truth_indices = list(map(lambda det: int(det['id']), truth_curr_frame))
