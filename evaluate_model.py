@@ -378,16 +378,6 @@ def build_mot_accumulator(truth_framedata: {},
         A motmetrics.MOTAccumulator that stores the matches and MOTEvents for all the
         frames in the input framedata.
     """
-    # Gut check here. Count and print the types of the keys to verify
-    # that they're integers.
-    int_key_count = 0
-    str_key_count = 0
-    for key in truth_framedata.keys():
-        if type(key) is str:
-            str_key_count += 1
-        elif type(key) is int:
-            int_key_count += 1
-    print("{} ints, {} strings out of {} keys".format(int_key_count, str_key_count, len(truth_framedata.keys())))
     
     # Get the maximum number of frames.
     max_frame = -1
@@ -400,7 +390,7 @@ def build_mot_accumulator(truth_framedata: {},
         max_model_frame = max(model_frames)
         max_frame = max(max_frame, max_model_frame)
 
-    print("max_frame is {}".format(max_frame))
+    #print("max_frame is {}".format(max_frame))
     
     acc = mm.MOTAccumulator()
     # Loop through each frame and build the distance matrix.

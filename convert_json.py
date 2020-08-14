@@ -13,14 +13,14 @@ import sys
 OUTPUT_ATTRIBUTE_TYPES = {'class_index': 'number',
                        'class_name': 'text',
                        'confidence': 'number',
-                       'occluded_pixels': 'number',
+                       'occlusion': 'number',
                        'surprise': 'number',
                        'uuid': 'text'}
 
 OUTPUT_ATTRIBUTE_MUTABILITY = {'class_index': 'False',
                             'class_name': 'False',
                             'confidence': 'True',
-                            'occluded_pixels': 'True',
+                            'occlusion': 'True',
                             'surprise': 'True',
                             'uuid': 'False'}
 
