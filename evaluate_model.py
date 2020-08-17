@@ -1,21 +1,29 @@
-# 6/16/2020
-# plee@mbari.org
-# Copyright Peyton Lee, MBARI 2020
-
-"""
+#!/usr/bin/env python
+__author__ = 'Peyton Lee'
+__copyright__ = '2020'
+__license__ = 'GPL v3'
+__contact__ = 'plee at mbari.org'
+__doc__ = '''
 Evalutes a computer vision tracker by comparing its output to
 a ground-truth dataset, generating CLEAR MOT metrics.
-"""
 
+@var __date__: Date of last svn commit
+@undocumented: __doc__ parser
+@status: development
+@license: GPL
+'''
+
+import json
+import math
+import sys
 import xml.etree.ElementTree as ET
-import motmetrics as mm
+from json import JSONDecodeError
+
 import numpy as np
 import pandas as pd
-import sys
-import math
 import requests
-import json
-from json import JSONDecodeError
+
+import motmetrics as mm
 
 
 class PhylogenyComparator:
@@ -352,8 +360,8 @@ def build_cost_matrix(truth_objects: [], model_objects: [], iou=False,
                                                     (float(x['ybr']) - float(x['ytl']))/2.],
                                          model_objects)))
         matrix = mm.distances.norm2squared_matrix(np.array(truth_coords),
-                                                np.array(model_coords),
-                                                max_d2=d2_cutoff)
+                                                  np.array(model_coords),
+                                                  max_d2=d2_cutoff)
         # Normalize to cutoff
         npmatrix = np.array(matrix)
         return npmatrix / d2_cutoff
@@ -369,7 +377,7 @@ def build_mot_accumulator(truth_framedata: {},
         truth_framedata: The data for the ground-truth output, parsed as a dictionary
               where the keys are frame numbers mapping to lists of detections for that
               frame. (as given by parse_XML_by_frame)
-              
+
         model_framedata: The data for the model's output, in the same format as the
               truth_framedata.
 
@@ -378,20 +386,9 @@ def build_mot_accumulator(truth_framedata: {},
         A motmetrics.MOTAccumulator that stores the matches and MOTEvents for all the
         frames in the input framedata.
     """
-    # Gut check here. Count and print the types of the keys to verify
-    # that they're integers.
-    int_key_count = 0
-    str_key_count = 0
-    for key in truth_framedata.keys():
-        if type(key) is str:
-            str_key_count += 1
-        elif type(key) is int:
-            int_key_count += 1
-    print("{} ints, {} strings out of {} keys".format(int_key_count, str_key_count, len(truth_framedata.keys())))
-    
-    # Get the maximum number of frames.
+
+    # Map the frame keys to integers and find the maximum frame number.
     max_frame = -1
-    # Sort the frame keys?
     if truth_framedata:
         truth_frames = list(map(lambda x: int(x), truth_framedata.keys()))
         max_frame = max(truth_frames)
@@ -401,7 +398,7 @@ def build_mot_accumulator(truth_framedata: {},
         max_frame = max(max_frame, max_model_frame)
 
     print("max_frame is {}".format(max_frame))
-    
+
     acc = mm.MOTAccumulator()
     # Loop through each frame and build the distance matrix.
     for i in range(max_frame + 1):
@@ -500,15 +497,16 @@ def build_metadata_table(truth_framedata: {}, model_framedata: {},
         if is_num:
             events[tag] = events.apply(
                 lambda x: pd.to_numeric(find_detection(model_framedata,
-                                        x.name[0],  # Frame number
-                                        x['HId'])   # The ID number of the detection
-                          .get(tag, float('nan'))),  # Get the tag property.
+                                                       # Frame number
+                                                       x.name[0],
+                                                       x['HId'])   # The ID number of the detection
+                                        .get(tag, float('nan'))),  # Get the tag property.
                 axis=1)
-        else:    
+        else:
             events[tag] = events.apply(
                 lambda x: find_detection(model_framedata,
-                                        x.name[0],  # Frame number
-                                        x['HId'])   # The ID number of the detection
+                                         x.name[0],  # Frame number
+                                         x['HId'])   # The ID number of the detection
                 .get(tag, float('nan')),  # Get the tag property.
                 axis=1)
     # Add in the classification names for both the truth and model detection.
@@ -549,7 +547,8 @@ def add_to_species_table(row: pd.Series, table: pd.DataFrame, accepted_events: {
     if o_sp_name:
         if o_sp_name not in table:
             # The species is new/not in table.
-            table.loc[o_sp_name] = pd.Series(np.zeros(len(accepted_events) + 2, dtype=int), name=o_sp_name)
+            table.loc[o_sp_name] = pd.Series(
+                np.zeros(len(accepted_events) + 2, dtype=int), name=o_sp_name)
             for event in accepted_events:
                 table.loc[o_sp_name][event] = 0
             table.loc[o_sp_name]['OFreq'] = 0
@@ -560,12 +559,14 @@ def add_to_species_table(row: pd.Series, table: pd.DataFrame, accepted_events: {
     if h_sp_name:
         if h_sp_name not in table:
             # The species is new/not in table.
-            table.loc[h_sp_name] = pd.Series(np.zeros(len(accepted_events) + 2, dtype=int), name=h_sp_name)
+            table.loc[h_sp_name] = pd.Series(
+                np.zeros(len(accepted_events) + 2, dtype=int), name=h_sp_name)
             for event in accepted_events:
                 table.loc[h_sp_name][event] = 0
             table.loc[h_sp_name]['OFreq'] = 0
             table.loc[h_sp_name]['HFreq'] = 0
-        table.loc[h_sp_name][event_type] = int(table.loc[h_sp_name][event_type]) + 1
+        table.loc[h_sp_name][event_type] = int(
+            table.loc[h_sp_name][event_type]) + 1
         table.loc[h_sp_name]['HFreq'] = int(table.loc[h_sp_name]['HFreq']) + 1
 
 
@@ -576,12 +577,15 @@ def get_species_breakdown(metadata_tables: [pd.DataFrame]) -> pd.DataFrame:
     classifiers = []
     for table in metadata_tables:
         # Concatenate the observation and hypothesis names, then filter so only unique labels are left.
-        classifiers = np.concatenate((classifiers, table["Oclass_name"].unique(), table["Hclass_name"].unique()))
+        classifiers = np.concatenate(
+            (classifiers, table["Oclass_name"].unique(), table["Hclass_name"].unique()))
         # Filter out None and N/A, then simplify to unique values.
-        classifiers = np.unique(classifiers[(classifiers != np.array(None)) & (classifiers != np.array("N/A"))])
+        classifiers = np.unique(
+            classifiers[(classifiers != np.array(None)) & (classifiers != np.array("N/A"))])
 
     # Columns include counts for each of the events, plus all other classifiers as guesses.
-    columns = ["MATCH", "SWITCH", "MISS", "FP", "TRANSFER", "ASCEND", "MIGRATE", "OFreq", "HFreq"]
+    columns = ["MATCH", "SWITCH", "MISS", "FP",
+               "TRANSFER", "ASCEND", "MIGRATE", "OFreq", "HFreq"]
     columns.extend(classifiers)
 
     ret_df = pd.DataFrame(columns=columns, index=classifiers)
@@ -590,10 +594,11 @@ def get_species_breakdown(metadata_tables: [pd.DataFrame]) -> pd.DataFrame:
     meta_df = pd.DataFrame()
     for table in metadata_tables:
         meta_df = meta_df.append(table)
-    
+
     for class_name in classifiers:
         # Find all rows of the supertable that correspond to the class_name
-        rows = meta_df.query('Oclass_name=="{NAME}" | Hclass_name=="{NAME}"'.format(NAME=class_name))
+        rows = meta_df.query(
+            'Oclass_name=="{NAME}" | Hclass_name=="{NAME}"'.format(NAME=class_name))
         # Generate a series and count the number of matching events.
         """
         for event in accepted_events:
@@ -660,7 +665,8 @@ if __name__ == "__main__":
         sys.exit()
     if (len(sys.argv) < 3):
         print("Too many arguments.")
-        print("Usage: python3 ./evaluate_model.py [truth file XML] [model output XML]")
+        print(
+            "Usage: python3 ./evaluate_model.py [truth file XML] [model output XML]")
         sys.exit()
 
     print_evaluation(sys.argv[1], sys.argv[2])
