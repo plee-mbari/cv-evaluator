@@ -1,28 +1,37 @@
-# 6/16/2020
-# plee@mbari.org
-# Copyright Peyton Lee, MBARI 2020
+#!/usr/bin/env python
+__author__ = 'Peyton Lee'
+__copyright__ = '2020'
+__license__ = 'GPL v3'
+__contact__ = 'plee at mbari.org'
+__doc__ = '''
+Reads and converts JSON computer vision tracker output to a CVAT-compatible XML format.
 
-"""Reads and converts JSON computer vision output to a CVAT-compatible XML format."""
+@var __date__: Date of last svn commit
+@undocumented: __doc__ parser
+@status: development
+@license: GPL
+'''
 
-import json
-import xml.etree.ElementTree as ET
-import xml.dom.minidom
 import glob
+import json
 import sys
+import xml.dom.minidom
+import xml.etree.ElementTree as ET
 
 OUTPUT_ATTRIBUTE_TYPES = {'class_index': 'number',
-                       'class_name': 'text',
-                       'confidence': 'number',
-                       'occluded_pixels': 'number',
-                       'surprise': 'number',
-                       'uuid': 'text'}
+                          'class_name': 'text',
+                          'confidence': 'number',
+                          'occluded_pixels': 'number',
+                          'surprise': 'number',
+                          'uuid': 'text'}
 
 OUTPUT_ATTRIBUTE_MUTABILITY = {'class_index': 'False',
-                            'class_name': 'False',
-                            'confidence': 'True',
-                            'occluded_pixels': 'True',
-                            'surprise': 'True',
-                            'uuid': 'False'}
+                               'class_name': 'False',
+                               'confidence': 'True',
+                               'occluded_pixels': 'True',
+                               'surprise': 'True',
+                               'uuid': 'False'}
+
 
 def read_json_annotations(json_file_paths) -> {}:
     """ Reads the set of JSON annotations into a map from the uuid's to the Visual
@@ -58,6 +67,7 @@ def read_json_annotations(json_file_paths) -> {}:
             # Append the eventdata to the array for that uuid.
             ret[uuid].append(eventdata)
     return ret
+
 
 def build_sub_element(parent: ET.Element, name: str, text="",  attrib={}) -> ET.Element:
     """ Builds an XML SubElement with the given parent, name, and text.

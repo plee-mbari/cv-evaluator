@@ -1,5 +1,7 @@
 # cv-evaluator
-Benchmarks and evaluation tests for computer vision detection/tracking algorithms. Developed by Peyton Lee for the Monterey Bay Aquarium Research Institute.
+Benchmarks and evaluation tests for computer vision detection/tracking algorithms. Developed by Peyton Lee for the Monterey Bay Aquarium Research Institute (plee at mbari.org).
+
+The evaluation is intended to work with the [CVAT](https://github.com/opencv/cvat) annotation tool, using the [py-motmetrics](https://github.com/cheind/py-motmetrics) library.
 
 ### Testing Organization
 The main test driver is run_benchmark.py.
@@ -33,3 +35,12 @@ The **model output directory** must have a matching directory for each config-sp
 
 The **output XLSX file** has a summary sheet, with the breakdown of the metrics for each test and the overall metrics, and an individual events page for each test sequence. 
 
+### Module Breakdown
+`convert_json.py` is used to convert the tracker output (a series of JSON files, one for each frame) to a single CVAT-compatible XML track file.
+
+`evaluate_model.py` loads in the frame data from the XML track files and generates metrics for it. 
+
+`run_benchmark.py` evaluates and aggregates metrics for a pre-defined test suite, with output written as an XLSX file.
+
+### See Also:
+[plee-mbari/deepsea-track-notebook](https://bitbucket.org/plee-mbari/deepsea-track-notebook): A project that makes use of this repository for evaluation of a video track. Several python notebooks show detailed steps for how the modules can be used to parse the tracker XML and JSON files.
