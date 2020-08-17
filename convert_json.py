@@ -19,6 +19,7 @@ import xml.dom.minidom
 import xml.etree.ElementTree as ET
 
 OUTPUT_ATTRIBUTE_TYPES = {'class_index': 'number',
+<<<<<<< HEAD
                           'class_name': 'text',
                           'confidence': 'number',
                           'occluded_pixels': 'number',
@@ -32,6 +33,20 @@ OUTPUT_ATTRIBUTE_MUTABILITY = {'class_index': 'False',
                                'surprise': 'True',
                                'uuid': 'False'}
 
+=======
+                       'class_name': 'text',
+                       'confidence': 'number',
+                       'occlusion': 'number',
+                       'surprise': 'number',
+                       'uuid': 'text'}
+
+OUTPUT_ATTRIBUTE_MUTABILITY = {'class_index': 'False',
+                            'class_name': 'False',
+                            'confidence': 'True',
+                            'occlusion': 'True',
+                            'surprise': 'True',
+                            'uuid': 'False'}
+>>>>>>> 24bf1cc59795f76d291c366506caaa17f88bb02e
 
 def read_json_annotations(json_file_paths) -> {}:
     """ Reads the set of JSON annotations into a map from the uuid's to the Visual
