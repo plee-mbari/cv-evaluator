@@ -13,17 +13,17 @@ a ground-truth dataset, generating CLEAR MOT metrics.
 @license: GPL
 '''
 
+import argparse
 import json
 import math
 import sys
 import xml.etree.ElementTree as ET
 from json import JSONDecodeError
 
+import motmetrics as mm
 import numpy as np
 import pandas as pd
 import requests
-
-import motmetrics as mm
 
 
 class PhylogenyComparator:
@@ -386,7 +386,7 @@ def build_mot_accumulator(truth_framedata: {},
         A motmetrics.MOTAccumulator that stores the matches and MOTEvents for all the
         frames in the input framedata.
     """
-    
+
     # Get the maximum number of frames.
     max_frame = -1
     if truth_framedata:
@@ -398,7 +398,7 @@ def build_mot_accumulator(truth_framedata: {},
         max_frame = max(max_frame, max_model_frame)
 
     #print("max_frame is {}".format(max_frame))
-    
+
     acc = mm.MOTAccumulator()
     # Loop through each frame and build the distance matrix.
     for i in range(max_frame + 1):
@@ -535,43 +535,17 @@ def build_metadata_table(truth_framedata: {}, model_framedata: {},
     return events
 
 
-def add_to_species_table(row: pd.Series, table: pd.DataFrame, accepted_events: {}):
-    o_sp_name = row.get('Oclass_name', None)
-    h_sp_name = row.get('Hclass_name', None)
-    event_type = row['Type']
-
-    if event_type not in accepted_events:
-        print("Does not accept type '{}'.".format(event_type))
-        return
-
-    if o_sp_name:
-        if o_sp_name not in table:
-            # The species is new/not in table.
-            table.loc[o_sp_name] = pd.Series(
-                np.zeros(len(accepted_events) + 2, dtype=int), name=o_sp_name)
-            for event in accepted_events:
-                table.loc[o_sp_name][event] = 0
-            table.loc[o_sp_name]['OFreq'] = 0
-            table.loc[o_sp_name]['HFreq'] = 0
-        table.loc[o_sp_name][event_type] = table.loc[o_sp_name][event_type] + 1
-        table.loc[o_sp_name]['OFreq'] = table.loc[o_sp_name]['OFreq'] + 1
-    # Repeat for the hypothesis
-    if h_sp_name:
-        if h_sp_name not in table:
-            # The species is new/not in table.
-            table.loc[h_sp_name] = pd.Series(
-                np.zeros(len(accepted_events) + 2, dtype=int), name=h_sp_name)
-            for event in accepted_events:
-                table.loc[h_sp_name][event] = 0
-            table.loc[h_sp_name]['OFreq'] = 0
-            table.loc[h_sp_name]['HFreq'] = 0
-        table.loc[h_sp_name][event_type] = int(
-            table.loc[h_sp_name][event_type]) + 1
-        table.loc[h_sp_name]['HFreq'] = int(table.loc[h_sp_name]['HFreq']) + 1
-
-
 def get_species_breakdown(metadata_tables: [pd.DataFrame]) -> pd.DataFrame:
     """ Creates a dataframe with metrics on the detection of each species.
+
+        Params
+        ------
+        metadata_tables: A list of metadata DataFrames to extract species from.
+
+        Returns
+        -------
+        A DataFrame that shows the number of occurrences for each event (MATCH, SWITCH, MISS, etc.)
+        by species labels.
     """
     # Generate a set of all classifications that were made.
     classifiers = []
@@ -632,11 +606,17 @@ def get_species_breakdown(metadata_tables: [pd.DataFrame]) -> pd.DataFrame:
     return ret_df
 
 
-def print_evaluation(truth_file, model_file):
-    """ Evaluates a 
+def print_evaluation(truth_file, tracker_file):
+    """ Compares to XML annotation files, generating and printing evaluation metrics.
+        Metrics are specified by the CLEAR MOT metrics (see https://github.com/cheind/py-motmetrics).
+
+        Params
+        ------
+        truth_file: The truth XML annotation file.
+        tracker_file: The tracker output XML annotation file.
     """
     truth_framedata = parse_XML_by_frame(truth_file)
-    model_framedata = parse_XML_by_frame(model_file)
+    model_framedata = parse_XML_by_frame(tracker_file)
 
     mot_acc = build_mot_accumulator(truth_framedata, model_framedata)
 
@@ -658,15 +638,12 @@ def print_evaluation(truth_file, model_file):
 
 
 if __name__ == "__main__":
-    if (len(sys.argv) < 3):
-        print("Missing one or more arguments.")
-        print(
-            "Usage: python3 ./evaluate_model.py [truth file XML] [model output XML]")
-        sys.exit()
-    if (len(sys.argv) < 3):
-        print("Too many arguments.")
-        print(
-            "Usage: python3 ./evaluate_model.py [truth file XML] [model output XML]")
-        sys.exit()
+    parser = argparse.ArgumentParser(description="Evalutes a computer vision tracker by comparing its output to \
+                                     a ground-truth dataset, generating CLEAR MOT metrics.")
+    parser.add_argument(
+        'truth_xml_path', help="Path to truth XML annotation file.")
+    parser.add_argument('tracker_xml_path', help="Path to tracker output XML annotation file. If using deepsea-track, output should be \
+                        converted from JSON using convert_json.py.")
+    args = parser.parse_args()
 
-    print_evaluation(sys.argv[1], sys.argv[2])
+    print_evaluation(args.truth_xml_path, args.tracker_xml_path)

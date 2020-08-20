@@ -12,6 +12,7 @@ Reads and converts JSON computer vision tracker output to a CVAT-compatible XML 
 @license: GPL
 '''
 
+import argparse
 import glob
 import json
 import sys
@@ -19,34 +20,19 @@ import xml.dom.minidom
 import xml.etree.ElementTree as ET
 
 OUTPUT_ATTRIBUTE_TYPES = {'class_index': 'number',
-<<<<<<< HEAD
                           'class_name': 'text',
                           'confidence': 'number',
-                          'occluded_pixels': 'number',
+                          'occlusion': 'number',
                           'surprise': 'number',
                           'uuid': 'text'}
 
 OUTPUT_ATTRIBUTE_MUTABILITY = {'class_index': 'False',
                                'class_name': 'False',
                                'confidence': 'True',
-                               'occluded_pixels': 'True',
+                               'occlusion': 'True',
                                'surprise': 'True',
                                'uuid': 'False'}
 
-=======
-                       'class_name': 'text',
-                       'confidence': 'number',
-                       'occlusion': 'number',
-                       'surprise': 'number',
-                       'uuid': 'text'}
-
-OUTPUT_ATTRIBUTE_MUTABILITY = {'class_index': 'False',
-                            'class_name': 'False',
-                            'confidence': 'True',
-                            'occlusion': 'True',
-                            'surprise': 'True',
-                            'uuid': 'False'}
->>>>>>> 24bf1cc59795f76d291c366506caaa17f88bb02e
 
 def read_json_annotations(json_file_paths) -> {}:
     """ Reads the set of JSON annotations into a map from the uuid's to the Visual
@@ -327,17 +313,22 @@ if __name__ == "__main__":
     -----
     python convert_json.py [output xml file] [*json files]
     """
-    if (len(sys.argv) < 3):
-        print("Missing one or more arguments.")
-        print("Usage: [output xml file] [*json files]")
-        sys.exit()
 
-    print("Starting...")
+    parser = argparse.ArgumentParser(
+        description="Converts the JSON tracker output to a CVAT-compatible XML annotation file.")
+    parser.add_argument('output_xml_path', type=str,
+                        help="Path for the XML output file.")
+    parser.add_argument('json_file_paths', type=str, help="One or more JSON tracker output files.",
+                        nargs="+")
+    args = parser.parse_args()
+
+    output_xml_path = args.output_xml_path
+    json_file_paths = args.json_file_paths
 
     # Append all matching files in the arguments to our file list.
-    files = get_filepaths(sys.argv[2: len(sys.argv)])
-    print("Found {} JSON frames.".format(len(files)))
+    json_files = get_filepaths(json_file_paths)
+    print("Found {} JSON frames.".format(len(json_files)))
 
-    convert_json_to_xml(sys.argv[1], files, 0.5)
+    convert_json_to_xml(output_xml_path, json_files, 0.5)
 
     print("Operation successful.")
