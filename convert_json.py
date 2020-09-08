@@ -305,7 +305,6 @@ def convert_json_to_xml(destination: str, json_src: [], compression_ratio: float
     file_output.write(formatted_xml)
     file_output.close
 
-
 if __name__ == "__main__":
     """ Converts the specified MBARI JSON frame data to a CVAT-compatible annotation file.
 
